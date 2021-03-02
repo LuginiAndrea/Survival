@@ -1,0 +1,52 @@
+Entity:::
+    -name
+
+PhysicalEntity:::: (Definisce le entità basi fisiche, con le proprietà di distruzione, collisione, movimento e rotazione)
+	-Il suo modello nella scena : Object3D
+	-Nome : string
+	-Distruttibile : bool  (Per entità vive se può essere killato)
+	-HitsToDestruct : int (Vita per entità vive) (o per alcuni oggetti, quanto prima di essere distrutti)
+	-CollisionOn : bool (=true)
+	-CollisionOffGeometryOn : bool (=false)
+	-CollisionOffGeometry : Object3D (Tipo porta) (= null se non c'è)
+	-PlayerMove: bool (=false)
+	
+
+	-Costruttore(geometry, texture, color, name = "baseEntity", collisionOn = false, collisionOffAreaOn = false, collisionOffGeometry = null)
+	-Distruttore () 
+		:Liberiamo geometria e materiale (non la texture!)
+	-Move(x,y,z)
+	-Rotate(xAng,yAng,zAng)
+	-OnDestruction() (=null per entità non distruttibili)
+	-whileDestructing() (=null per entità non distruttibili) /
+
+	!!!!!! USARE EXTEND PER I SUONI !!!!!!
+----------
+
+Weapon < Entity {
+	-DmgToAlive (multiplier) : double
+	-DmgToEntity (multiplier) : double
+	-InUse : bool
+
+	-Attack()
+}
+
+----------
+
+Npc < Entity { //Codice dell'intelligenza artificiale}
+HostileNpc < Npc 
+StaticNpc < Npc {} //tipo mercanti
+
+------------
+
+Player < Entity {
+	-EquippedWeapon (=pugni di default) : Weapon
+	-Camera : camera
+	-PlayerName : String
+
+	-Attack()
+	-MoveCamera()
+}
+
+	
+
