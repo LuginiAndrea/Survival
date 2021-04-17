@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>My Enable3d Project</title>
+    <link rel="stylesheet" href="/Css/Game.css">
+    <link rel="shortcut icon" href="#">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Akaya+Telivigala&display=swap" rel="stylesheet"> 
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet"> 
+    <script src="/lib/enable3d/enable3d.framework.0.22.0-dev.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous"></script>
+  </head>
+
+  <body>
+    <script src="js/game.js" type="module"></script>
+    <div id="inventory">
+      <h1 id ="invHeading"> Uagliu', questo è ciò che hai arruffato nella tua avventura</h1>
+      <ul id="itemWrapper">
+          <li class="inventoryItem"  data-n = 0>&nbsp;</li
+          ><li class="inventoryItem" data-n = 1>&nbsp;</li
+          ><li class="inventoryItem" data-n = 2>&nbsp;</li
+          ><li class="inventoryItem" data-n = 3>&nbsp;</li
+          ><li class="inventoryItem" data-n = 4>&nbsp;</li
+          ><li class="inventoryItem" data-n = 5>&nbsp;</li
+          ><li class="inventoryItem" data-n = 6>&nbsp;</li
+          ><li class="inventoryItem" data-n = 7>&nbsp;</li
+          ><li class="inventoryItem" data-n = 8>&nbsp;</li
+          ><li class="inventoryItem" data-n = 9>&nbsp;</li>
+      </ul>
+    </div>
+    <div id="tmpInv1" class="tmpInv"></div>
+    <div id="tmpInv2" class="tmpInv"></div>
+    <progress id="health" value="100" max="100"></progress>
+    <span id="healthTxt">100/100</span>
+    
+  </body>
+</html>

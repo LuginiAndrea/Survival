@@ -1,0 +1,11 @@
+Model Information:
+* title:	Greek Papyrus 28 - a facsimile
+* source:	https://sketchfab.com/3d-models/greek-papyrus-28-a-facsimile-60b3975fed0a4441908a395c9c30deec
+* author:	The John Rylands Library (https://sketchfab.com/TheJohnRylandsLibrary)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Greek Papyrus 28 - a facsimile" (https://sketchfab.com/3d-models/greek-papyrus-28-a-facsimile-60b3975fed0a4441908a395c9c30deec) by The John Rylands Library (https://sketchfab.com/TheJohnRylandsLibrary) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

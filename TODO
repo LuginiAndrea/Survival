@@ -1,0 +1,22 @@
+
+Prio :
+    Finire la classe item --> PRIO!!!
+    gestire equip inventario --> WIP
+    Vedere come togliere contraints fra due corpi!
+    Quando spawna un item vedere come dargli una angolazione
+end
+
+Medio :
+    Gestire I suoni! --> Usare FiniteStateMachine |  https://github.com/yandeu/audio
+    Fare raytracing per vedere quando aprire un inventario
+    Mettere gli spawner per le armi -> Diversi da quelli degli item!
+    Inserire css che faccia capire quando un item è equipaggiato
+end
+
+Last :
+    Vedere come stilizzare progress bar
+Animazioni e stati per tutti gli altri oggetti
+end
+
+Classico refactor se avanza il tempo (Sostiruire gli add / get etc. con versioni più leggibili e renderep più pulito il codice)
+Fare repo su github
