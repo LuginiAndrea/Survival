@@ -1,6 +1,6 @@
 import {FiniteStateMachine} from "./FiniteStateMachine.js";
 import {SpawnFunctions} from "../game.js";
-export {Entity, PhysEntity, ArmedEntity}
+export {Entity, PhysEntity, ArmedEntity, Item}
 
 class Entity {
     constructor(parent, name, model, x = 0, y = 0, z = 0) {
@@ -46,17 +46,23 @@ class Entity {
     get FiniteStateMachine() {
         return this.__finiteStateMachine;
     }
-    addState(stateName,ifStopState) {
-        this.FiniteStateMachine.addState(stateName,ifStopState);
+    get states() { // Interfaccia esterna
+        return {
+            add: (stateName,ifStopState) => { this.__addState(stateName,ifStopState); },
+            set: (stateName) => { this.__setState(stateName); },
+            get: (stateName) => { return this.__getState(stateName); },
+            current: this.FiniteStateMachine.states.current,
+            list: this.FiniteStateMachine.states.list()
+        }
+    } 
+    __addState(stateName,ifStopState) { //Queste rimangono per motivi di ereditarietà
+        this.FiniteStateMachine.states.add(stateName,ifStopState);
     }
-    setState(stateName) {
-        this.FiniteStateMachine.setState(stateName);
+    __setState(stateName) {
+        this.FiniteStateMachine.states.set(stateName);
     }
-    get currentState() {
-        return this.FiniteStateMachine.currentState;
-    }
-    getState(stateName) {
-        return this.FiniteStateMachine.getState(stateName);
+    __getState(stateName) {
+        return this.FiniteStateMachine.states.get(stateName);
     }
     /* Inventario */
     set inventory (inv) {
@@ -94,10 +100,6 @@ class PhysEntity extends Entity {
     get body() {
         return this.model.body;
     }
-    get model() {
-        return this.__model;
-    }
-
     /* Trasformazioni 3D */
     move(forward, side, upward) { 
         let cosZ = Math.cos(this.model.world.theta);
@@ -127,21 +129,15 @@ class PhysEntity extends Entity {
 class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipaggiare degli item
     constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = 0, health = 0} = {}) { 
         super({parent:parent,name:name,model:model,x:x,y:y,z:z,collisionFlag:collisionFlag,physConfig:physConfig,maxHealth:maxHealth,health:health});
-        this._equipped = {index: null, weapon: null}; //L'indice nell'inventario, l'entità fisica
+        this._equipped = {index: null, weapon: null}; //L'indice nell'inventario, la weapon entity
     }
     destroy() {
         if(this.equippedItem != null) this.equippedItem.destroy();
         return super.destroy();
     }
     /* Equipped items */
-    __loadEquipped() { //Private, serve al load dell'item
-        let item = this.inventory.items[this._equipped.index];
-        this._equipped.weapon = SpawnFunctions[item.name + "Spawner"](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:this.model.position.x, y:this.model.position.y / 2, z:this.model.position.z / 2});
-        this._equipped.weapon.load();
-        this.__parent.physics.add.constraints.fixed(this.body, this._equipped.weapon.body); //lega i due oggetti
-    }
-    equip(index) {
-        if(this.inventory.items[index].equippable) {
+    equip(index) { //Aggiungerli sotto un get inventory? Boh
+        if(this.inventory.items.at(index).equippable) {
             this._equipped.index = index;
             this.__loadEquipped();
         }
@@ -150,17 +146,26 @@ class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipag
     get equippedItem() {
         return this._equipped.weapon;
     }
-    setState(stateName) { //Setta lo state a entrambi (Devono avere lo stesso nome!)
-        super.setState(stateName);
-        /*Bisogna implementare gli stati degli item equipaggiabbili this._equipped.physEnt.setState(stateName); */
+    __loadEquipped() { //Private, serve al load dell'item
+        let item = this.inventory.items.at([this._equipped.index]);
+        this._equipped.weapon = SpawnFunctions[item.name + "Spawner"](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:this.model.position.x, y:this.model.position.y / 2, z:this.model.position.z / 2});
+        this._equipped.weapon.load();
+        this.__parent.physics.add.constraints.fixed(this.body, this._equipped.weapon.body); //lega i due oggetti
     }
+    //setState(stateName) { //Setta lo state a entrambi (Devono avere lo stesso nome!)
+        //super.setState(stateName);
+        /*Bisogna implementare gli stati degli item equipaggiabbili this._equipped.physEnt.setState(stateName); */
+    //}
 }
-
-class WeaponEntity extends PhysEntity { //Wrapper semplice semplice  ---> Le WeaponEntity Non hanno inventari (Anzichè ereditarla gestiral come un contenitore di physEnt?)
-    constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = 0, health = 0, offset = {x = 0, y = 0, z = 0} = {}, damage = 0} = {}) {
-        super({parent:parent,name:name,model:model,x:x,y:y,z:z,collisionFlag:collisionFlag,physConfig:physConfig,maxHealth:maxHealth,health:health});
+class Item {
+    constructor(entity, damage = 0) {
+        this._entity = entity;
         this._damage = damage;
     }
-    destroy() {super.destroy(); return null;} // Le Weapon Entity non ritornano inventari
+    destroy() { this._entity.destroy(); }
+    load() { this._entity.load(); }
+    get body() { return this._entity.body; }
+    get model() { return this._entity.model; }
+    get FiniteStateMachine() { return this._entity.FiniteStateMachine; }
+    get states() { return this._entity.states; }
 }
-

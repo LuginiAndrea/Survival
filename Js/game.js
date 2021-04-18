@@ -1,7 +1,7 @@
 export {SpawnFunctions}
-import { Entity, PhysEntity, ArmedEntity} from "./classes/Entity.js"
-import { createInventoryItem, PlayerInventory, Inventory } from "./classes/Inventory.js"
-const { ExtendedMesh, Project, Scene3D, PhysicsLoader, THREE, ExtendedObject3D,  ThirdPersonControls, PointerLock, PointerDrag } = ENABLE3D
+import {Entity, PhysEntity, ArmedEntity, Item} from "./classes/Entity.js"
+import {createInventoryItem, PlayerInventory, Inventory} from "./classes/Inventory.js"
+const {ExtendedMesh, Project, Scene3D, PhysicsLoader, THREE, ExtendedObject3D,  ThirdPersonControls, PointerLock, PointerDrag} = ENABLE3D
 
 var names = { //hash map con i nomi degli oggetti
   Tree1: 0,
@@ -43,7 +43,7 @@ SpawnFunctions["Tree1Spawner"] = addTree1;
 SpawnFunctions["InventorySpawner"] = addInventory;
 SpawnFunctions["SwordSpawner"] = addSword;
 
-
+/* ------------------------------ INIZIO MAIN SCENE --------------------------- */
 
 class MainScene extends Scene3D {
   constructor() {
@@ -128,7 +128,6 @@ async init() {
         console.log("OOf");
       }
     });*/
-    this.box = 1;
   }
 
   update() {
@@ -140,34 +139,34 @@ async init() {
     /* WASD */
     if(this.keys.w && this.player.jump.pressed == false) { 
       if(this.keys.shift) { 
-        this.player.setState("Running");
+        this.player.states.set("Running");
         forward = RUN_SPEED;
       }
       else {
-        this.player.setState("Walking");
+        this.player.states.set("Walking");
         forward = WALK_SPEED;
       }
 
     }
     else if(this.keys.a && this.player.jump.pressed == false) {
-      this.player.setState("LeftSideStep");
+      this.player.states.set("LeftSideStep");
       side = -SIDE_STEP_SPEED;
     }
     else if(this.keys.d && this.player.jump.pressed == false) {
-      this.player.setState("RightSideStep");
+      this.player.states.set("RightSideStep");
       side = SIDE_STEP_SPEED;
     }
     else if(this.keys.s && this.player.jump.pressed == false) {
-      this.player.setState("BackStep");
+      this.player.states.set("BackStep");
       forward = -WALK_SPEED;
     }
 
     /*Jump*/
     if(this.keys.SpaceBar && this.player.jump.status == false && this.player.jump.pressed == false && this.player.attacking == attackStatus.NO) { 
       this.player.jump.pressed = true;
-      let before = this.player.currentState.state;
-      this.player.setState("Jump");
-      this.player.getState(this.player.currentState.state).setLeaveState(before);
+      let before = this.player.states.current.state;
+      this.player.states.set("Jump");
+      this.player.states.get(this.player.states.current.state).setLeaveState(before);
       setTimeout(() => {  this.player.jump.status = true;
                           y = JUMP_SPEED; 
                           this.player.move(NULL_SPEED,NULL_SPEED,y);
@@ -176,7 +175,7 @@ async init() {
 
     if(forward == NULL_SPEED && side == NULL_SPEED) { //Se non abbiamo premuto nulla torniamo all'idle
       if(this.player.jump.status == false && this.player.jump.pressed == false && this.player.attacking == attackStatus.NO) 
-        this.player.currentState.exit(); //Se nessun movimento è attivo allora andiamo in idle 
+        this.player.states.current.exit(); //Se nessun movimento è attivo allora andiamo in idle 
     }
     this.player.move(forward,side,NULL_SPEED);
 
@@ -214,7 +213,7 @@ async init() {
     }
     else this.keys.arrowRight.change = true;
 
-    if(this.keys.arrowLeft.status) {
+    if(this.keys.arrowLeft.status) { 
       if(this.keys.arrowLeft.change == true && inventoryShowing == 1) {
         this.keys.arrowLeft.change = false;
         selectedItem--;
@@ -225,11 +224,7 @@ async init() {
     }
     else this.keys.arrowLeft.change = true;
 
-    if(this.keys.e && this.box != null) {
-      destroyObject(this,0);
-      this.box = null;
-    }
-    if(this.keys.g && this.player.equippedItem == null) {
+    if(this.keys.e && this.player.equippedItem == null) {
       this.player.equip(0);
     }
 
@@ -238,17 +233,18 @@ async init() {
       if(Math.abs(this.player.body.velocity.y) < JUMP_OFFSET) {  //Siamo fermi? (Verticalmente)
         this.player.jump.status = false;
         this.player.jump.pressed = false;
-        this.player.currentState.exit();
+        this.player.states.current.exit();
       }
       this.player.jump.oldY = this.player.model.position.y; //Aggiorniamo le vecchie coordinate 
     }
   }
 }
-
 // load from '/lib/ammo/kripken' or '/lib/ammo/moz'
 PhysicsLoader('/lib/ammo/kripken', () => new Project({ scenes: [MainScene], antialias:true }));
 
-//Adders 
+/* ------------------------------ FINE MAIN SCENE --------------------------- */
+
+/* --------------------------- Inizio ADDERS ------------------------ */
 function preLoad(mainScene) {
   mainScene.load.preload("inventory", "../Resources/Models/Inventory/scene.gltf");
   mainScene.load.preload("player","../Resources/Models/Protagonista/Protagonista.glb"); 
@@ -290,18 +286,19 @@ function addMan(scene, name, {x = 0, y = 0, z = 0} = {}) {
                                    physConfig: physConf, 
                                 });
   /*Caricamento FSM*/
-  newMan.addState("Idle","Idle");
-  newMan.addState("Jump","Idle");
-  newMan.addState("LeftSideStep","Idle");
-  newMan.addState("RightSideStep","Idle");
-  newMan.addState("Running","Idle");
-  newMan.addState("BackStep","Idle");
-  newMan.addState("Walking","Idle");
-  newMan.setState("Idle");
+  newMan.states.add("Idle","Idle");
+  newMan.states.add("Jump","Idle");
+  newMan.states.add("LeftSideStep","Idle");
+  newMan.states.add("RightSideStep","Idle");
+  newMan.states.add("Running","Idle");
+  newMan.states.add("BackStep","Idle");
+  newMan.states.add("Walking","Idle");
+  newMan.states.set("Idle");
   /*Caricamento inventario*/
+  //newMan.inventory = new createInventoryItem["wood"](3);
   newMan.inventory = new PlayerInventory(10);
-  newMan.inventory.addItem(createInventoryItem["sword"](1));
-  newMan.inventory.addItem(createInventoryItem["wood"](10));
+  newMan.inventory.items.add(createInventoryItem["sword"](1));
+  newMan.inventory.items.add(createInventoryItem["wood"](10));
   return newMan;
 }
 function addTree1(scene, name, {x = 0, y = 0, z = 0} = {}) {
@@ -315,11 +312,11 @@ function addTree1(scene, name, {x = 0, y = 0, z = 0} = {}) {
   const compounds = [ {shape:"box", width: 6, depth: 6, height: 12}, {shape:"box", width: 12, depth: 12, height: 12, y:10} ];
   const physConf = {compounds:compounds, offset: {y:-6}, mass:Number.MAX_SAFE_INTEGER}; //Per gli oggetti che non si devono muovere basta mettere la massa a questo valore
   let entity = new PhysEntity({ parent:scene, 
-                          name:name + names["Tree1"], 
-                          model:model,
-                          x:x,y:y,z:z, 
-                          physConfig:physConf
-                        });
+                                name:name + names["Tree1"], 
+                                model:model,
+                                x:x,y:y,z:z, 
+                                physConfig:physConf
+                              });
   /* Caricamento inventario */
   return entity;
 }
@@ -353,14 +350,16 @@ function addSword(scene, name, {x = 0, y = 0, z = 0} = {}) { //Sostituire col we
   x = x + eqOffset.x;
   y = y + eqOffset.y;
   z = z + eqOffset.z;
-  return new PhysEntity({ parent:scene, 
+  let phys = new PhysEntity({ parent:scene, 
                           name:name + names["Sword"], 
                           model:model,
                           x:x,y:y,z:z, 
                           physConfig:physConf, 
                           collisionFlag:bodyTypes.GHOST
                         });
+  return new Item(phys,10);
 }
+/* --------------------------- FINE ADDERS ------------------------ */
 
 /*Destroyer*/ 
 function destroyObject(scene,index,{c_x = 0,c_y = 0,c_z = 0} = {}) { 
@@ -382,6 +381,9 @@ function dropItem(scene,inv,index,{c_x = 0,c_y = 0,c_z = 0} = {},stacks = null) 
   scene.entities[scene.entities.length-1].inventory = newInv;
   scene.entities[scene.entities.length-1].load();
 }
+
+/* ----------------- Inizio gestori mouse ----------------- */
+
 /*Other stuff*/
 $(document).ready(() => {
   /* Inventari */
@@ -415,10 +417,8 @@ $(document).ready(() => {
       console.log(intersects);
     }*/
     if (player.attacking == attackStatus.NO) { 
-      console.log("attack");
       player.attacking = attackStatus.FIRSTATTACK; 
-      setTimeout(()=>{console.log("miao"); player.attacking = attackStatus.NO},200);
+      setTimeout(()=>{player.attacking = attackStatus.NO},200);
     }
-    console.log(player.model.world.theta)
   });
 });

@@ -9,16 +9,15 @@ class State {            //Wrapper molto base che ci semplifica la vita
     get state() {
         return this._stateName;
     }
-    
     setLeaveState(state) {
         this.__ifStopState = state;
     }
     enter() {
-        if(this.__finiteStateMachine.currentState != null && this.__finiteStateMachine._currentState.state != this._stateName) //Se siamo già nello stesso stato non facciamo nulla
+        if(this.__finiteStateMachine.states.current != null && this.__finiteStateMachine.states.current.state != this._stateName) //Se siamo già nello stesso stato non facciamo nulla
             this.__finiteStateMachine.parent.animations.play(this.state);
     }
     exit() {
-        this.__finiteStateMachine.setState(this.__ifStopState);
+        this.__finiteStateMachine.states.set(this.__ifStopState);
     }
 }
 
@@ -31,19 +30,19 @@ class FiniteStateMachine { //Wrapper che serve a gestire animazioni e suoni
     get parent() {
         return this.__parent;
     }
-    addState(stateName, ifStopState) {
-        this._states[stateName] = new State(this,stateName,ifStopState);
-    }
-    setState(stateName) {
-        const state = this._states[stateName];
-        state.enter();
-        this._currentState = state;
-    }  
-    get currentState() {
-        return this._currentState;
-    }
-    getState(stateName) {
-        return this._states[stateName];
+    get states() { // Interfaccia esterna
+        return {
+            list: () => { const statesList = this._states; return statesList; },
+            current: this._currentState,
+            add: (stateName,ifStopState) => { this._states[stateName] = new State(this,stateName,ifStopState); },
+            set: (stateName) => {    
+                const state = this._states[stateName];
+                state.enter();
+                this._currentState = state;
+
+            },
+            get: (stateName) => { return this._states[stateName]; }
+        };
     }
 }
 

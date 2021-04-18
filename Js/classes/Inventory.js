@@ -5,6 +5,7 @@ createInventoryItem["wood"] = createWoodItem;
 createInventoryItem["sword"] = createSwordItem;
 var imgPath = "../../Resources/Textures/";
 
+/* ------------------------- Inizio classi ---------------------------*/
 class InvItem {
     constructor({imgName = null, itemName = null, equippable = false, stacks = 0, maxStacks = 0} = {}) {
         this.__imgName = imgName;
@@ -25,7 +26,22 @@ class InvItem {
         this.__maxStacks = item.__maxStacks
     }
     /* Stacks */
-    addStacks(stack = 1) {
+    get stacks() { // ----> Interfaccia esterna
+        return {
+            get: () => { const s = this._stacks; return s; },
+            set: (s) => { 
+                if(s > this.__maxStacks) {
+                    console.warn("Stacks maggiori del massimo, saranno settati al massimo");
+                    s = this.__maxStacks;
+                }
+                this._stacks = s; 
+            },
+            add: (stacks) => { return this.__addStacks(stacks); }, 
+            drop: (stacks) => { return this.__dropStacks(stacks); },
+            dropAll: () => { this.__dropStacks(); }
+        };
+    }
+    __addStacks(stack = 1) { 
         let remainingStacks = 0 //Gli stack che non sono stati presi (Se la capacità massima è stata raggiunta)
         this._stacks += stack
         if(this._stacks > this.__maxStacks) {
@@ -34,7 +50,7 @@ class InvItem {
         }
         return remainingStacks
     }
-    removeStacks(stack = this.__maxStacks) {
+    __dropStacks(stack = this.__maxStacks) { 
         let dropStacks = 0 //Gli stack droppati
         if (this._stacks - stack < 0) {
             dropStacks = this._stacks
@@ -46,14 +62,7 @@ class InvItem {
         }     
         return dropStacks   
     }
-    /* Setters */
-    set stacks(s) {
-        this._stacks = s;
-    }
     /* Getters */
-    get stacks() {
-        return this._stacks
-    }
     get name() {
         return this.__itemName
     }
@@ -80,12 +89,20 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
             this._items.push(new InvItem());
     }
     /* Items */
-    addItem(item, {lastIndex = 0, callback = null} = {}) { //Usiamo una funzione di callback che serve alla classe Player per scrivere sull'UI
+    get items() { // ----> Interfaccia esterna
+        return {
+            list: () => { const itemsList = this._items; return itemsList; },
+            add: (item,lastIndex = 0) => { return this.__addItem(item,lastIndex); },
+            drop: (index,stacks = null) => { return this.__dropItem(index,stacks); },
+            at: (index) => { return this._items[index]; } 
+        };
+    }
+    __addItem(item, lastIndex = 0) { //Usiamo una funzione di callback che serve alla classe Player per scrivere sull'UI
         let index = -1;
         for(let i = lastIndex; i < this._items.length; i++) { //Vediamo i posti dove già esiste questo item (In caso esista)
             if(this._items[i].name == item.name && this._items[i].remainingSpace > 0) { index = i; break; }
         }
-        let returningStacks = item.stacks;
+        let returningStacks = item.stacks.get();
         if(index == -1) { //Se l'item non c'è / tutti gli slot sono al completo 
             if(this.remainingSpace > 0) { //se c'è ancora spazio aggiungiamo, se no non possiamo fare nulla
                 let tmp = new InvItem();
@@ -93,38 +110,33 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
                 this._items[this._size] = tmp;
                 returningStacks = 0; 
                 this._size++;
-                if(callback != null) callback(this._items);
             }
         }
         else { //Se invece ci sono degli slot non al completo
-            returningStacks = this._items[index].addStacks(item.stacks); //Aggiungiamo dove possiamo
-            if(callback != null) callback(this._items);
+            returningStacks = this._items[index].stacks.add(item.stacks.get()); //Aggiungiamo dove possiamo
             if(returningStacks > 0) { //Se ci sono ancora degli stack da inserire
                 item._stacks = returningStacks;
-                returningStacks = this.addItem(item,index+1,callback); //Richiamiamo la funzione stessa
+                returningStacks = this.__addItem(item,index+1); //Richiamiamo la funzione stessa
             }
         }
         return returningStacks;
     }
-    dropItem(index, stacks = null,returnInv = true) {  //Che item, quanti stack, vogliamo un inventario?
+    __dropItem(index, stacks = null) {
         let dropStacks = 0;
-        if(stacks == null) dropStacks = this._items[index].removeStacks(); //Se è null si droppa tutto l'item
-        else dropStacks = this._items[index].removeStacks(stacks);
+        if(stacks == null) dropStacks = this._items[index].stacks.drop(); //Se è null si droppa tutto l'item
+        else dropStacks = this._items[index].stacks.drop(stacks);
         let tmp = new InvItem(); //Costruiamo un nuovo item
         tmp.copyItem(this._items[index]);
-        tmp._stacks = dropStacks;
+        tmp.stacks.set(dropStacks);
         let inventory = new Inventory(1); //Un nuovo inventario
-        inventory.addItem(tmp);  //Aggiungiamo l'item all'inventario
-        if(this._items[index].stacks == 0 && returnInv) { //Se siamo a 0 stacks si droppa l'inventario (fisicamente)
+        inventory.addItem(tmp);  
+        if(this._items[index].stacks.get() == 0) { 
             this._items.splice(index,1);
             this._items.push(new InvItem());
         }
         return inventory;        
     }
     /* Getters */
-    get items() {
-        return this._items;
-    }
     get remainingSpace() {
         return (this.__maxSize - this._size);
     }
@@ -137,7 +149,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         this._items.forEach((item) => {
             if(item.name != null) {
                 let i = document.createElement("li");
-                i.textContent = "\u00A0" + item.name + "\u00A0\u00A0\u00A0" + item.stacks;
+                i.textContent = "\u00A0" + item.name + "\u00A0\u00A0\u00A0" + item.stacks.get();
                 i.dataset.n = counter; /*Funziona come indice*/
                 counter++;
                 list.append(i);
@@ -146,13 +158,13 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         return list;
     }
     /* Metodi di classe */
-    static moveFromInventory(from, to, index, stacks) { /*Comunicazione fra due inventari ---> Usato per gli inventari temporanei*/ 
+    static moveFromInventory(from, to, index, stacks) { /*Comunicazione fra due inventari ---> Usato per gli inventari temporanei --> Vedere se rifarla */
         let tmp = new InvItem();
         tmp.copyItem(from.items[index]);
-        tmp.stacks = stacks;                
+        tmp.stacks.set(stacks);             
         let returning = to.addItem(tmp);
         from.dropItem(index,stacks - returning,false);
-        $("#tmpInv1").html(""); /*Some css*/
+        $("#tmpInv1").html(""); 
         $("#tmpInv1").append(from.htmlElement);
         $("#tmpInv2").html("");
         $("#tmpInv2").append(to.htmlElement);
@@ -160,22 +172,26 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
 }       
 
 class PlayerInventory extends Inventory{ //Un wrapper la cui unica vera utilità (per il momento) è chiamare UPDATEUI
-    addItem(item) {
-        super.addItem(item,{ callback: updateUI });
+    __addItem(item) {
+        let tmp  = super.__addItem(item);
+        updateUI(this._items);
+        return tmp;
     }
-    dropItem(index, stacks = null) {
-        let tmp = super.dropItem(index,stacks);
+    __dropItem(index, stacks = null) {
+        let tmp = super.items.__dropItem(index,stacks);
         updateUI(this._items);
         return tmp;
     }
 }
-function updateUI(inventary) { /*Aggiorna il css quando cambia qualcosa nell'inventario del giocatore*/
+/*------------------ Fine classi --------------------------- */
+
+function updateUI(inventory) { /*Aggiorna il css quando cambia qualcosa nell'inventario del giocatore*/
     let i = 0;
-    for(let i = 0; i < inventary.length; i++) {
+    for(let i = 0; i < inventory.length; i++) {
         let pos = $(".inventoryItem").eq(i);
-        if(inventary[i].name != null) {
-            pos.css("background-image","url(" + inventary[i].img + ")");
-            pos.text(inventary[i].stacks);
+        if(inventory[i].name != null) {
+            pos.css("background-image","url(" + inventory[i].img + ")");
+            pos.text(inventory[i].stacks.get());
         }
         else {
             pos.css("background-image","none");
@@ -183,7 +199,8 @@ function updateUI(inventary) { /*Aggiorna il css quando cambia qualcosa nell'inv
         }
     }
 }
-/*Create inventory items*/
+
+/* ----------------------- Create inventory items --------------------------------*/
 function createWoodItem(nStacks = 1) {
     return (new InvItem({   imgName: (imgPath + "wood.svg"),
                             itemName: "Legno",
