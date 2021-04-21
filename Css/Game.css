@@ -100,9 +100,23 @@ body {
     padding: 0px;
     margin: 0;
 }
-
 .tmpInv li {
     padding: 5px;
     list-style:none;
     cursor: pointer;
+}
+
+#Pog {
+    background-image: url("../Resources/Textures/pog.png");
+    position: absolute;
+    top: 5%;
+    left: 30%;
+    height: 60%;
+    width: 35%;
+    background-size: cover;
+    opacity: 0.9; 
+    border: 10px solid black;
+    font-size: 300%;
+    color: white;
+    text-align: center;
 }

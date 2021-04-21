@@ -1,6 +1,6 @@
 import {FiniteStateMachine} from "./FiniteStateMachine.js";
-import {SpawnFunctions} from "../game.js";
-export {Entity, PhysEntity, ArmedEntity, Item}
+import {spawners, weaponOffsets} from "./Spawner.js";
+export {Entity, PhysEntity, ArmedEntity, Item, PlayerEntity, EntityManager}
 
 class Entity {
     constructor(parent, name, model, x = 0, y = 0, z = 0) {
@@ -11,6 +11,7 @@ class Entity {
         this.__model.name = "object3D_" + name;
         this.__finiteStateMachine = new FiniteStateMachine(this);
         this.__inventory = null;     // Type inventory
+        this.__manager = null;
     }
     load() {
        this.__parent.add.existing(this.model); //Aggiungiamo la mesh alla scena
@@ -19,6 +20,9 @@ class Entity {
     destroy() {
         this.model.clear();
         return this.inventory;
+    }
+    set manager(m) {
+        this.__manager = m;
     }
     /* Getters */
     get model() {
@@ -29,6 +33,9 @@ class Entity {
     }
     get animations() {
         return this.__model.animation;
+    }
+    get parent() {
+        return this.__parent;
     }
     /* Trasformazioni 3D */
     rotate(degX, degY, degZ) {
@@ -48,15 +55,15 @@ class Entity {
     }
     get states() { // Interfaccia esterna
         return {
-            add: (stateName,ifStopState) => { this.__addState(stateName,ifStopState); },
+            add: (stateName,ifStopState,audio) => { this.__addState(stateName,ifStopState,audio); },
             set: (stateName) => { this.__setState(stateName); },
             get: (stateName) => { return this.__getState(stateName); },
             current: this.FiniteStateMachine.states.current,
             list: this.FiniteStateMachine.states.list()
         }
     } 
-    __addState(stateName,ifStopState) { //Queste rimangono per motivi di ereditarietà
-        this.FiniteStateMachine.states.add(stateName,ifStopState);
+    __addState(stateName,ifStopState,audio) { //Queste rimangono per motivi di ereditarietà
+        this.FiniteStateMachine.states.add(stateName,ifStopState,audio);
     }
     __setState(stateName) {
         this.FiniteStateMachine.states.set(stateName);
@@ -120,20 +127,24 @@ class PhysEntity extends Entity {
         this.body.setAngularVelocityY(degY);
         this.body.setAngularVelocityZ(degZ);   
     }
-    /*setPosition(x = 0, y = 0, z = 0) { //Solo per kinematic bodies --> Visto che non funzionano i kinematic, togliere?
+    setPosition(x = 0, y = 0, z = 0) { 
         super.setPosition(x,y,z);
         this.body.needUpdate = true;
-    }*/
+    }
 }
 
 class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipaggiare degli item
     constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = 0, health = 0} = {}) { 
         super({parent:parent,name:name,model:model,x:x,y:y,z:z,collisionFlag:collisionFlag,physConfig:physConfig,maxHealth:maxHealth,health:health});
-        this._equipped = {index: null, weapon: null}; //L'indice nell'inventario, la weapon entity
+        this._equipped = {index: -1, weapon: null}; //L'indice nell'inventario, la weapon entity
     }
     destroy() {
         if(this.equippedItem != null) this.equippedItem.destroy();
         return super.destroy();
+    }
+    load() {
+        super.load();
+        this.equip(0);
     }
     /* Equipped items */
     equip(index) { //Aggiungerli sotto un get inventory? Boh
@@ -143,29 +154,96 @@ class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipag
         }
         else console.warn("Item non equipaggiabile");
     }
+    /*unequip() { //Vedere attentamente sta funzione
+        if(this._equipped.weapon != null) {
+            this._equipped.weapon.destroy();
+            console.log(this._equipped.weapon);
+            this._equipped.index = -1;
+        }
+    }*/
     get equippedItem() {
         return this._equipped.weapon;
     }
     __loadEquipped() { //Private, serve al load dell'item
         let item = this.inventory.items.at([this._equipped.index]);
-        this._equipped.weapon = SpawnFunctions[item.name + "Spawner"](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:this.model.position.x, y:this.model.position.y / 2, z:this.model.position.z / 2});
+        const {x,y,z} = weaponOffsets[item.name];
+        this._equipped.weapon = spawners.item[item.name](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:this.model.position.x+x, y:this.model.position.y / 2+y, z:(this.model.position.z / 2)+z});
         this._equipped.weapon.load();
-        this.__parent.physics.add.constraints.fixed(this.body, this._equipped.weapon.body); //lega i due oggetti
+        this.__parent.physics.add.constraints.lock(this.body, this._equipped.weapon.body); //lega i due oggetti
     }
     //setState(stateName) { //Setta lo state a entrambi (Devono avere lo stesso nome!)
         //super.setState(stateName);
         /*Bisogna implementare gli stati degli item equipaggiabbili this._equipped.physEnt.setState(stateName); */
     //}
 }
+
+class PlayerEntity extends ArmedEntity {
+    /*unequip() {
+        if(this._equipped.index >= 0 && this._equipped.index <= this.inventory.maxSize) {
+            const newHtml = $(".inventoryItem").eq(this._equipped.index).html();
+            newHtml = newHtml.substring(0,newHtml.length-3);
+            $(".inventoryItem").eq(this._equipped.index).html(newHtml);
+        }
+        super.unequip();
+    }*/
+    __loadEquipped() {
+        super.__loadEquipped("player");
+        $(".inventoryItem").eq(this._equipped.index).html($(".inventoryItem").eq(this._equipped.index).html() + "(E)");
+    }
+}
+
 class Item {
     constructor(entity, damage = 0) {
         this._entity = entity;
         this._damage = damage;
+        this._onCollision = (otherObj,event) => {};
     }
     destroy() { this._entity.destroy(); }
-    load() { this._entity.load(); }
+    load() { 
+        this._entity.load(); 
+        this._entity.body.on.collision((otherObj,event) => {this._onCollision(otherObj,event);});
+    }
+    get entity() { return this._entity; }
     get body() { return this._entity.body; }
     get model() { return this._entity.model; }
     get FiniteStateMachine() { return this._entity.FiniteStateMachine; }
     get states() { return this._entity.states; }
+    set onCollision(callback) { this._onCollision = callback; }
+    get onCollision() { return this._onCollision; }
+    //spth.gob.es
 }
+
+
+class EntityManager {
+    constructor() {
+        this._entities = {};
+    }
+    get entities() {
+        return {
+            add: (entity) => {
+                this._entities[entity.name] = entity;
+                this._entities[entity.name].manager = this;
+                this._entities[entity.name].load();
+                return this._entities[entity.name];
+            },
+            remove: (entityName, {c_x = 0,c_y = 0,c_z = 0} = {}) => {
+                let obj = this._entities[entityName];
+                const scene = obj.parent;
+                const inv = obj.destroy();
+                delete this._entities[entityName];
+                if(inv != null) { 
+                   let newInventory = this.entities.add(spawners.entity["Inventory"](scene,"inventory",{x:c_x,y:c_y,z:c_z}));
+                   newInventory.inventory = inv;
+                   newInventory.load();
+                }
+            },
+            entity: (entityName) => {
+                return this._entities[entityName];
+            },
+            list: this._entities
+        };
+    }
+}
+
+                
+  

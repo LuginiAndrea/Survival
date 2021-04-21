@@ -1,13 +1,11 @@
-export {SpawnFunctions}
-import {Entity, PhysEntity, ArmedEntity, Item} from "./classes/Entity.js"
-import {createInventoryItem, PlayerInventory, Inventory} from "./classes/Inventory.js"
-const {ExtendedMesh, Project, Scene3D, PhysicsLoader, THREE, ExtendedObject3D,  ThirdPersonControls, PointerLock, PointerDrag} = ENABLE3D
 
-var names = { //hash map con i nomi degli oggetti
-  Tree1: 0,
-  Inventory: 0,
-  Sword:0
-};
+import {spawners} from "./classes/Spawner.js";
+import {QuestManager} from "./classes/Quest.js";
+import { EntityManager } from "./classes/Entity.js";
+const {ExtendedMesh, Project, Scene3D, PhysicsLoader, THREE, ExtendedObject3D,  ThirdPersonControls, PointerLock, PointerDrag} = ENABLE3D;
+
+
+
 const MAX_PRESS_COUNTER = 40;
 var player;
 const attackStatus = Object.freeze({
@@ -20,61 +18,25 @@ var selectedItemTmp1 = -1; //Item selezionato dall'inventario di scambio 1
 var selectedItemTmp2 = -1; //Item selezionato dall'inventario di scambio 2
 var selectedItem = 0; //Item selezionato dall'inventario
 var inventoryShowing = 0; // 0 no, 1 si, 2 sta mostrando il tmpInventory 
-const DROP_OFFSET = Object.freeze({
-  z: 4,
-  y:1
-});
 /*Globali fisica*/
-const bodyTypes = Object.freeze({
-  DYNAMIC : 0,
-  GHOST : 4
-});
-const WALK_SPEED = 5;
-const SIDE_STEP_SPEED = 3;
-const RUN_SPEED = 10;
+const WALK_SPEED = -5;
+const SIDE_STEP_SPEED = -3;
+const RUN_SPEED = -10;
 const JUMP_SPEED = 10; 
 const NULL_SPEED = 0;
 const JUMP_OFFSET = 0.14391;
 const GROUND_NAME = "body_id_21";
-/*Spawner di entities*/
-const SpawnFunctions = {};
-SpawnFunctions["PlayerSpawner"] = addMan;
-SpawnFunctions["Tree1Spawner"] = addTree1;
-SpawnFunctions["InventorySpawner"] = addInventory;
-SpawnFunctions["SwordSpawner"] = addSword;
-
 /* ------------------------------ INIZIO MAIN SCENE --------------------------- */
 
 class MainScene extends Scene3D {
   constructor() {
     super('MainScene');
-    this.entities = new Array(); //Array di tutte le entità meno player
+    this.entityManager = new EntityManager(); //Array di tutte le entità meno player
     this.player = null;
-  }
-
-async init() {
-    console.log('init');
-    $("#inventory").hide();
-    $(".tmpInv").hide();
-    this.renderer.setPixelRatio(1);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    preLoad(this);
-  } 
-
-  preload() {
-    console.log('preload');
-    this.warpSpeed("-ground");
-    this.physics.debug.enable();
-    this.camera.fov=90;
-    this.camera.updateProjectionMatrix();
-  }
-
-  async create() {
-    /* Base physics setup */
-    console.log('create');
-    this.physics.add.ground({width:100, height:100, depth:3, y:-10});
-    //this.physics.debug.disable();
-    /* Keys events */
+    this.questManager = new QuestManager();
+    this.audio = new AudioManager();
+    this.sounds = {};
+    /* Keys */
     this.keys = {
       w: false,
       a: false,
@@ -110,24 +72,74 @@ async init() {
     };
     $(window).keydown(e => press(e,true));
     $(window).keyup(e => press(e,false));
+
+    this.moveTop = 0
+    this.moveRight = 0
+  }
+
+async init() {
+    console.log('init');
+    $("#inventory").hide();
+    $(".tmpInv").hide();
+    $("#Pog").hide();
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    await preLoad(this);  
+    this.sounds["background"].play();
+} 
+
+  preload() {
+    console.log('preload');
+    this.warpSpeed("-ground");
+    this.physics.debug.enable();
+    this.camera.fov=90;
+    this.camera.updateProjectionMatrix();
+
+  }
+
+  async create() {
+    /* Base physics setup */
+    console.log('create');
+    this.physics.add.ground({width:100, height:100, depth:3, y:-10});
+    //this.physics.debug.disable();
+
     /*Player Loading*/
-    this.player = SpawnFunctions["PlayerSpawner"](this,"ciccio");
-    this.player.load();
+    this.player = this.entityManager.entities.add(spawners.entity["Player"](this,"player"));
     this.player.body.setDamping(0.8,0.8); //Evita il "moonwalking"
     this.player.jump = {status:false, oldY: -8.5, pressed: false}; 
     this.player.attacking = attackStatus.NO;
     player = this.player;
+
+    /*Quest Loading*/
+    this.questManager.quests.add(spawners.quests["moveQuest"](this));
+    this.questManager.quests.add(spawners.quests["invQuest"](this));
+
+    /*Entity loading*/
+    //this.entityManager.entities.add(spawners.entity["Tree1"](this,"tree1", {z:10}));
+  
+    //this.entities.add(spawners.entity["Player"](this,"player"));
     
-    this.entities.push(SpawnFunctions["Tree1Spawner"](this,"tree",{z:-10}));
-    this.entities[this.entities.length-1].load();
-    this.entities.push(SpawnFunctions["Tree1Spawner"](this,"tree",{z:10}));
-    this.entities[this.entities.length-1].load();
-    /*this.player.equippedItem.body.on.collision((otherObj, e) => {
-      if(otherObj.name != GROUND_NAME && this.player.attacking == attackStatus.FIRSTATTACK) {
-        this.player.attacking = attackStatus.ONGOING;
-        console.log("OOf");
+    this.player.body.on.collision((otherObj, e) => {
+      if(otherObj.name != GROUND_NAME) {
+        console.log(otherObj.body);
       }
-    });*/
+    });
+
+    /* Telecamera */
+    this.controls = new ThirdPersonControls(this.camera, this.player.__model, {
+      offset: new THREE.Vector3(0.3, 8, -1),
+      targetRadius: 12,
+      radius: 0,
+      sensitivity: new THREE.Vector2(0.3, 0.3)
+    });
+
+    let pl = new PointerLock(this.canvas);
+    let pd = new PointerDrag(this.canvas);
+    pd.onMove(delta => {
+      if(pl.isLocked()) {
+        this.controls.update(delta.x * 2, delta.y * 2);
+      }
+    });
   }
 
   update() {
@@ -146,7 +158,6 @@ async init() {
         this.player.states.set("Walking");
         forward = WALK_SPEED;
       }
-
     }
     else if(this.keys.a && this.player.jump.pressed == false) {
       this.player.states.set("LeftSideStep");
@@ -223,11 +234,6 @@ async init() {
       }
     }
     else this.keys.arrowLeft.change = true;
-
-    if(this.keys.e && this.player.equippedItem == null) {
-      this.player.equip(0);
-    }
-
     /*Collisione salto controllo sgravato pazzurdo*/
     if(this.player.jump.status == true) { //Se stiamo saltando
       if(Math.abs(this.player.body.velocity.y) < JUMP_OFFSET) {  //Siamo fermi? (Verticalmente)
@@ -237,147 +243,77 @@ async init() {
       }
       this.player.jump.oldY = this.player.model.position.y; //Aggiorniamo le vecchie coordinate 
     }
+    
+    /* Telecamera */
+    if(this.player.model) {
+      this.controls.update(this.moveRight * 2, -this.moveTop * 2)
+      const v3 = new THREE.Vector3()
+      const rotation = this.camera.getWorldDirection(v3)
+      const theta = Math.atan2(rotation.x, rotation.z)
+      const thetaMan = this.player.model.world.theta;
+      this.player.body.setAngularVelocityY(0)
+      const l = Math.abs(theta - thetaMan)
+      let rotationSpeed = 4
+      let d = Math.PI / 24     
+      if (l > d) {
+        if (l > Math.PI - d) rotationSpeed *= -1
+        if (theta < thetaMan) rotationSpeed *= -1
+        this.player.body.setAngularVelocityY(rotationSpeed);
+      }
+    }
+
+    //Quest manager
+    this.questManager.update();
   }
 }
 // load from '/lib/ammo/kripken' or '/lib/ammo/moz'
 PhysicsLoader('/lib/ammo/kripken', () => new Project({ scenes: [MainScene], antialias:true }));
 
 /* ------------------------------ FINE MAIN SCENE --------------------------- */
-
+function setMinVolume(entities) { //Vedere come calcolare il volume
+  let max = 0;
+  const computeDist = function (entity1, entity2) {
+    let diffX = entity1.model.position.x - entity2.model.position.x;
+    let diffY = entity1.model.position.y - entity2.model.position.y;
+    return Math.sqrt(diffX*diffX + diffY*diffY);
+  }
+  for(let entity in entities) {
+    let r = computeDist(player,entity);
+    if(r > max) max = r;
+  }
+}
 /* --------------------------- Inizio ADDERS ------------------------ */
-function preLoad(mainScene) {
+async function preLoad(mainScene) {
+  /*Model load*/
   mainScene.load.preload("inventory", "../Resources/Models/Inventory/scene.gltf");
   mainScene.load.preload("player","../Resources/Models/Protagonista/Protagonista.glb"); 
   mainScene.load.preload("truck", "../Resources/Models/Truck/scene.gltf");
   mainScene.load.preload("tree1", "../Resources/Models/trees/tree1.gltf");
   mainScene.load.preload("sword","../Resources/Models/Sword/Sword.glb");
+  /*Audio load*/
+  await mainScene.audio.load("noSound","../Resources/Audio/noSound", "mp3", "ogg");
+  await mainScene.audio.load('playerWalk', '../Resources/Audio/Protagonista/playerWalk', 'wav', 'ogg');
+  await mainScene.audio.load('LessGo', '../Resources/Audio/Protagonista/LessGo', 'mp3', 'ogg');
+  await mainScene.audio.load("playerRun","../Resources/Audio/Protagonista/playerRun", "mp3", "ogg");
+  await mainScene.audio.load("background", "../Resources/Audio/backgroundSound", "mp3", "ogg");
+  mainScene.sounds["noSound"] = await mainScene.audio.add("noSound");
+  mainScene.sounds["playerWalk"] = await mainScene.audio.add("playerWalk");
+  mainScene.sounds["playerRun"] = await mainScene.audio.add("playerRun");
+  mainScene.sounds["background"] = await mainScene.audio.add("background");
+  mainScene.sounds["lessGo"] = await mainScene.audio.add("LessGo");
+  mainScene.sounds["background"].setVolume(0.05);
+  mainScene.sounds["playerWalk"].setVolume(0.3);
+  mainScene.sounds["lessGo"].setVolume(5);
+  //mainScene.sounds["lessGo"].play();
 }
-function LoadModel({scene, modelName, animationNames = null, loop = false, radX = 0, radY = 0, radZ = 0, x = 0, y = 0, z = 0} = {}) {
-  let model = new ExtendedObject3D();
-  scene.load.gltf(modelName).then( gltf => {
-    const child = gltf.scene.children[0];
-    child.rotation.x = radX; //Rotazione
-    child.rotation.y = radY;
-    child.rotation.z = radZ;
-    model.add(child);
-    if(animationNames != null) { //Animazioni
-      scene.animationMixers.add(model.animation.mixer);
-      for(let i = 0; i < gltf.animations.length; i++) {
-        model.animation.add(animationNames[i],gltf.animations[i],loop);
-      }
-    }
-  });
-  return model;
-}
-function addMan(scene, name, {x = 0, y = 0, z = 0} = {}) {
-  /* Model Load */
-  const model = LoadModel({ scene:scene, 
-                            modelName:"player",
-                            animationNames: ["Idle","Jump","LeftSideStep","RightSideStep","RunJump","Running","BackStep","Walking"],
-                            radX:Math.PI/2, radZ:Math.PI
-                          });
-  /* Physics setup */
-  const compounds = [{shape:"box", width: 2.9, depth: 5.5, height: 8.5}]; 
-  const physConf = {compounds:compounds, mass:60, offset: {y:-4.25}}; 
-  const newMan = new ArmedEntity({ parent:scene, 
-                                   name: name,
-                                   model: model, 
-                                   x:x,y:y,z:z, 
-                                   physConfig: physConf, 
-                                });
-  /*Caricamento FSM*/
-  newMan.states.add("Idle","Idle");
-  newMan.states.add("Jump","Idle");
-  newMan.states.add("LeftSideStep","Idle");
-  newMan.states.add("RightSideStep","Idle");
-  newMan.states.add("Running","Idle");
-  newMan.states.add("BackStep","Idle");
-  newMan.states.add("Walking","Idle");
-  newMan.states.set("Idle");
-  /*Caricamento inventario*/
-  //newMan.inventory = new createInventoryItem["wood"](3);
-  newMan.inventory = new PlayerInventory(10);
-  newMan.inventory.items.add(createInventoryItem["sword"](1));
-  newMan.inventory.items.add(createInventoryItem["wood"](10));
-  return newMan;
-}
-function addTree1(scene, name, {x = 0, y = 0, z = 0} = {}) {
-  /* Model Load */
-  const model = LoadModel({ scene:scene, 
-                            modelName:"tree1",
-                            radX: Math.PI * 3/2,
-                          });
-  names["Tree1"]++;
-  /* Physics setup */
-  const compounds = [ {shape:"box", width: 6, depth: 6, height: 12}, {shape:"box", width: 12, depth: 12, height: 12, y:10} ];
-  const physConf = {compounds:compounds, offset: {y:-6}, mass:Number.MAX_SAFE_INTEGER}; //Per gli oggetti che non si devono muovere basta mettere la massa a questo valore
-  let entity = new PhysEntity({ parent:scene, 
-                                name:name + names["Tree1"], 
-                                model:model,
-                                x:x,y:y,z:z, 
-                                physConfig:physConf
-                              });
-  /* Caricamento inventario */
-  return entity;
-}
-function addInventory(scene, name, {x = 0, y = 0, z = 0} = {}) {
-  /* Model Load */
-  const model = LoadModel({ scene:scene, 
-                            modelName:"inventory",
-                          });
-  names["Inventory"]++;
-  /* Physics setup */
-  const compounds = [ {shape:"box", width: 1, depth: 1, height: 0.3} ];
-  const physConf = {compounds:compounds, offset: {y:-0.15}}; 
-  return new PhysEntity({ parent:scene, 
-                          name:name + names["Inventory"], 
-                          model:model,
-                          x:x,y:y,z:z, 
-                          physConfig:physConf
-                        });
-}
-function addSword(scene, name, {x = 0, y = 0, z = 0} = {}) { //Sostituire col weapon entity
-  /* Model Load */
-  const model = LoadModel({ scene:scene, 
-                            modelName:"sword",
-                            radX: Math.PI * 3/2,
-                          });
-  names["Sword"]++;
-  /* Physics setup */
-  const compounds = [ {shape:"box", width: 1, depth: 5.4, height: 0.1} ];
-  const physConf = {compounds:compounds, offset: {z:+1.9}}; 
-  let eqOffset = {x:1.5, z:-1.8,y:-0.6};
-  x = x + eqOffset.x;
-  y = y + eqOffset.y;
-  z = z + eqOffset.z;
-  let phys = new PhysEntity({ parent:scene, 
-                          name:name + names["Sword"], 
-                          model:model,
-                          x:x,y:y,z:z, 
-                          physConfig:physConf, 
-                          collisionFlag:bodyTypes.GHOST
-                        });
-  return new Item(phys,10);
-}
+
 /* --------------------------- FINE ADDERS ------------------------ */
 
 /*Destroyer*/ 
-function destroyObject(scene,index,{c_x = 0,c_y = 0,c_z = 0} = {}) { 
-  let obj = scene.entities[index];
-  let inv = obj.destroy();
-  if(inv == null) { //Se non ha returnato un inventario eliminiamo e basta
-    scene.entities.splice(index,1);
-  }
-  else {
-    let newInventory = SpawnFunctions["InventorySpawner"](scene,"inventory",{x:c_x,y:c_y,z:c_z});
-    newInventory.inventory = obj.destroy();
-    scene.entities[index] = newInventory;
-    scene.entities[index].load();
-  }
-}
+//Aggiustare
 function dropItem(scene,inv,index,{c_x = 0,c_y = 0,c_z = 0} = {},stacks = null) {
   let newInv = inv.dropItem(index,stacks);
-  scene.entities.push(new SpawnFunctions["InventorySpawner"](scene,"inventario",{z:c_z,y:c_y}))
+  scene.entities.push(new SpawnFunctions.entity["InventorySpawner"](scene,"inventario",{z:c_z,y:c_y}))
   scene.entities[scene.entities.length-1].inventory = newInv;
   scene.entities[scene.entities.length-1].load();
 }

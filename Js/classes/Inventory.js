@@ -1,8 +1,8 @@
 export {createInventoryItem,PlayerInventory, Inventory}
 
 const createInventoryItem = {};
-createInventoryItem["wood"] = createWoodItem;
-createInventoryItem["sword"] = createSwordItem;
+createInventoryItem["Wood"] = createWoodItem;
+createInventoryItem["Sword"] = createSwordItem;
 var imgPath = "../../Resources/Textures/";
 
 /* ------------------------- Inizio classi ---------------------------*/
