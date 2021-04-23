@@ -9,7 +9,8 @@ const {ExtendedObject3D} = ENABLE3D;
 /* --------------- Quest Spawners ---------------- */
 const questSpawners = Object.freeze({
     moveQuest: addMoveQuest,
-    invQuest: addInvQuest
+    invQuest: addInvQuest,
+    destroyQuest: addDestroyQuest
 });
 
 function addMoveQuest(scene) {
@@ -50,9 +51,36 @@ function addInvQuest(scene) {
     }
     return new Quest("InvQuest",start,check,end,parameters);
 }
+function addDestroyQuest(scene) {
+    let parameters = Object.freeze({
+                                entities: scene.entityManager.entities.list,
+                                sound: scene.sounds["lessGo"]
+                            });
+    let start = (args) => {
+        //Codice per scrivere nel css
+    }
+    let check = (args) => { 
+        const keys = Object.keys(args.entities);
+        for(let names of keys) {
+            if(args.entities[names].isAlive == false) console.log(args.entities[names].destroyedBy);
+            if(args.entities[names].isAlive == false && args.entities[names].destroyedBy == args.entities["player"])
+                return true;
+        }
+        return false;
+    }
+    let end = (args) => { //Inserire css
+        args.sound.play();
+        $("#Pog").show();
+        $("#Pog").html("<br><br>Piccolo Vandalo<br><br> COMPLETATO");
+        setTimeout(()=>{$("#Pog").hide();},3100);
+    }
+    return new Quest("DestroyQuest",start,check,end,parameters);
+}
+
 
 
 /* ------------- Entity spawners -------------------*/
+const GROUND_NAME = "body_id_21";
 var names = { //hash map con i nomi degli oggetti
     Tree1: 0,
     Inventory: 0,
@@ -106,19 +134,17 @@ function addPlayer(scene, name, {x = 0, y = 0, z = 0} = {}) {
                             radX:Math.PI/2,
                           });
   /* Physics setup */
-  const compounds = [   {shape:"sphere", radius:1.1, y:7.6, z:0.8, x:-0.2}, //Testa
-                        {shape:"box", width: 1.2, depth: 2.2, height: 3, y:5.1, z:0.4}, //Busto
-                        {shape:"box", width: 0.5, depth: 0.5, height: 0.5, y:6, z:0, x:-0.9}, //Braccio destro 1
-                        {shape:"box", width: 0.5, depth: 0.5, height: 0.5, y:5.5, z:-0.3, x:-0.9}, //Braccio destro 2
-                        {shape:"box", width: 0.5, depth: 0.5, height: 1, y:5.0, z:-0.8, x:-0.95}, //Braccio destro 3
-                        {shape:"box", width: 0.7, depth: 0.5, height: 1.3, y:3.9, z:-0.8, x:-1.3}, //Braccio destro 4
-                        {shape:"box", width: 10, depth: 5.5, height: 20}]; 
+  const compounds = [   {shape:"sphere", radius:1.5, y:7.6, z:0.8}, //Testa
+                        {shape:"box", width: 5, depth: 3.5, height: 6.3, y:3.1, z:-0.25}, //Busto e gambe
+                    ];
   const physConf = {compounds:compounds, mass:60, collGroup:2}; 
-  const newMan = new ArmedEntity({ parent:scene, 
+  const newMan = new PlayerEntity({ parent:scene, 
                                    name: name,
                                    model: model, 
                                    x:x,y:y,z:z, 
-                                   physConfig: physConf, 
+                                   physConfig: physConf,
+                                   maxHealth: 350,
+                                   health: 350
                                 });
   /*Caricamento FSM*/
   newMan.states.add("Idle","Idle",scene.sounds["noSound"]);
@@ -151,9 +177,13 @@ function addTree1(scene, name, {x = 0, y = 0, z = 0} = {}) {
                                   name:name + names["Tree1"], 
                                   model:model,
                                   x:x,y:y,z:z, 
-                                  physConfig:physConf
+                                  physConfig:physConf,
+                                  maxHealth: 300,
+                                  health: 300
                                 });
     /* Caricamento inventario */
+    entity.inventory = new Inventory(5);
+    entity.inventory.items.add(createInventoryItem["Wood"](1));
     return entity;
 }
 
@@ -165,7 +195,7 @@ function addInventory(scene, name, {x = 0, y = 0, z = 0} = {}) {
     names["Inventory"]++;
     /* Physics setup */
     const compounds = [ {shape:"box", width: 1, depth: 1, height: 0.3} ];
-    const physConf = {compounds:compounds, offset: {y:-0.15}}; 
+    const physConf = {compounds:compounds, offset: {y:-0.15}, mass:10}; 
     return new PhysEntity({ parent:scene, 
                             name:name + names["Inventory"], 
                             model:model,
@@ -205,21 +235,22 @@ const itemSpawners = Object.freeze({
 });
 
 const weaponOffsets = Object.freeze({
-    Sword:{x:-2.9,y:0,z:1.9}
+    Sword:{x:-2.9,y:4,z:1.8}
 });
 
 function addSwordItem(scene, name, {x = 0, y = 0, z = 0} = {}) { //---> Inserire il on.Collision
     let phys = spawners.entity["Sword"](scene,name,{x:x,y:y,z:z},bodyTypes.GHOST);
-    let item = new Item(phys,300);
-    /*item.onCollision = (otherObj,event) => {
-        if(otherObj.name != GROUND_NAME) {
-            console.log(otherObj.name);
+    let item = new Item(phys,30,200);
+    item.onCollision = (otherObj) => {
+        if(otherObj.name != GROUND_NAME && item.user.usingItem == ArmedEntity.useStatusStates.first) {
+            item.user.usingItem = ArmedEntity.useStatusStates.ongoing;
+            const otherName = otherObj.name.split("_")[1];
+            item.user.manager.entities.entity(otherName).hit(item);
         }
-    };*/
+    };
     return item;
 }
 /* ------------ FINE SPAWNERS --------------- */
-
 const spawners = Object.freeze({
     entity: entitySpawners,
     item: itemSpawners,

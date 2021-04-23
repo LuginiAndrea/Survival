@@ -1,18 +1,12 @@
 
 Prio :
-    gestire equip inventario --> WIP
-    In Attesa di risposta --------> Vedere come togliere contraints fra due corpi! 
-    In Attesa di risposta --------> Quando spawna un item vedere come dargli una angolazione
-
-    //Lavorare con un solo item per il momento? --> pare funzionare
-
+    Rifare drop item
     Fare formula per calcolo del volume dell'audio
 end
 
 Medio :
     Gestire I suoni! --> Usare FiniteStateMachine |  https://github.com/yandeu/audio --> A buon punto daje
     Fare raytracing per vedere quando aprire un inventario
-    Distruzione alberi, etc...
     Fare lista quest css e html
 end
 
@@ -21,14 +15,10 @@ Last :
     Animazioni e stati per tutti gli altri oggetti
 end
 
-Vedere idea strana per equip re-equip col cubo che si sposta
-Refactoring
-Spostare i createInventoryItem con gli altri spawner
-
-x : 1 = 50 : 0.1
-
 Fillo:
 Sistema di crafting ---> Fillo WIP
+
+
 Mob neutri ---> Fillo WIP
 Mob ostili ---> Fillo WIP
 NPC? ---> Fillo WIP

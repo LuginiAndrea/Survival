@@ -8,15 +8,9 @@ class State {            //Wrapper molto base che ci semplifica la vita
         this._sound = sound;
         this._sound.setLoop(true);
     }
-    get state() {
-        return this._stateName;
-    }
-    get sound() {
-        return this._sound;
-    }
-    setLeaveState(state) {
-        this.__ifStopState = state;
-    }
+    get state() { return this._stateName; }
+    get sound() { return this._sound; }
+    setLeaveState(state) { this.__ifStopState = state; }
     enter() {
         this._sound.play();
         if(this.__finiteStateMachine.states.current != null && this.__finiteStateMachine.states.current.state != this._stateName) //Se siamo già nello stesso stato non facciamo nulla
@@ -34,9 +28,7 @@ class FiniteStateMachine { //Wrapper che serve a gestire animazioni e suoni
         this._currentState = null;
         this._states = {}; 
     }
-    get parent() {
-        return this.__parent;
-    }
+    get parent() { return this.__parent; }
     get states() { // Interfaccia esterna
         return {
             list: () => { const statesList = this._states; return statesList; },

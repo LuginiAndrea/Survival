@@ -19,16 +19,16 @@ class InvItem {
         }
     }
     copyItem(item) { //Copia
-        this.__imgName = item.__imgName
-        this.__itemName = item.__itemName
-        this.__equippable = item.__equippable
-        this._stacks = item._stacks
-        this.__maxStacks = item.__maxStacks
+        this.__imgName = item.__imgName;
+        this.__itemName = item.__itemName;
+        this.__equippable = item.__equippable;
+        this._stacks = item._stacks;
+        this.__maxStacks = item.__maxStacks;
     }
     /* Stacks */
     get stacks() { // ----> Interfaccia esterna
         return {
-            get: () => { const s = this._stacks; return s; },
+            get: this._stacks,
             set: (s) => { 
                 if(s > this.__maxStacks) {
                     console.warn("Stacks maggiori del massimo, saranno settati al massimo");
@@ -42,42 +42,32 @@ class InvItem {
         };
     }
     __addStacks(stack = 1) { 
-        let remainingStacks = 0 //Gli stack che non sono stati presi (Se la capacità massima è stata raggiunta)
-        this._stacks += stack
+        let remainingStacks = 0; //Gli stack che non sono stati presi (Se la capacità massima è stata raggiunta)
+        this._stacks += stack;
         if(this._stacks > this.__maxStacks) {
-            remainingStacks = this._stacks - this.__maxStacks
-            this._stacks = this.__maxStacks
+            remainingStacks = this._stacks - this.__maxStacks;
+            this._stacks = this.__maxStacks;
         }
-        return remainingStacks
+        return remainingStacks;
     }
     __dropStacks(stack = this.__maxStacks) { 
-        let dropStacks = 0 //Gli stack droppati
+        let dropStacks = 0; //Gli stack droppati
         if (this._stacks - stack < 0) {
-            dropStacks = this._stacks
-            this._stacks = 0
+            dropStacks = this._stacks;
+            this._stacks = 0;
         }
         else {
-            this._stacks -= stack
-            dropStacks = stack
+            this._stacks -= stack;
+            dropStacks = stack;
         }     
-        return dropStacks   
+        return dropStacks;
     }
     /* Getters */
-    get name() {
-        return this.__itemName
-    }
-    get img () {
-        return this.__imgName
-    }
-    get maxStacks() {
-        return this.__maxStacks
-    }
-    get equippable() {
-        return this.__equippable
-    }
-    get remainingSpace() {
-        return (this.__maxStacks - this._stacks);
-    }
+    get name() { return this.__itemName; }
+    get img () { return this.__imgName; }
+    get maxStacks() { return this.__maxStacks; }
+    get equippable() { return this.__equippable; }
+    get remainingSpace() { return (this.__maxStacks - this._stacks); }
 }
 
 class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'inventario quando il puntatore ci va sopra, drop degli item, add degli item, creazione del modello dell'inventory
@@ -91,7 +81,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
     /* Items */
     get items() { // ----> Interfaccia esterna
         return {
-            list: () => { const itemsList = this._items; return itemsList; },
+            list: this._items,
             add: (item,lastIndex = 0) => { return this.__addItem(item,lastIndex); },
             drop: (index,stacks = null) => { return this.__dropItem(index,stacks); },
             at: (index) => { return this._items[index]; } 
@@ -102,7 +92,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         for(let i = lastIndex; i < this._items.length; i++) { //Vediamo i posti dove già esiste questo item (In caso esista)
             if(this._items[i].name == item.name && this._items[i].remainingSpace > 0) { index = i; break; }
         }
-        let returningStacks = item.stacks.get();
+        let returningStacks = item.stacks.get;
         if(index == -1) { //Se l'item non c'è / tutti gli slot sono al completo 
             if(this.remainingSpace > 0) { //se c'è ancora spazio aggiungiamo, se no non possiamo fare nulla
                 let tmp = new InvItem();
@@ -113,7 +103,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
             }
         }
         else { //Se invece ci sono degli slot non al completo
-            returningStacks = this._items[index].stacks.add(item.stacks.get()); //Aggiungiamo dove possiamo
+            returningStacks = this._items[index].stacks.add(item.stacks.get); //Aggiungiamo dove possiamo
             if(returningStacks > 0) { //Se ci sono ancora degli stack da inserire
                 item._stacks = returningStacks;
                 returningStacks = this.__addItem(item,index+1); //Richiamiamo la funzione stessa
@@ -130,7 +120,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         tmp.stacks.set(dropStacks);
         let inventory = new Inventory(1); //Un nuovo inventario
         inventory.addItem(tmp);  
-        if(this._items[index].stacks.get() == 0) { 
+        if(this._items[index].stacks.get == 0) { 
             this._items.splice(index,1);
             this._items.push(new InvItem());
         }
@@ -149,7 +139,7 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         this._items.forEach((item) => {
             if(item.name != null) {
                 let i = document.createElement("li");
-                i.textContent = "\u00A0" + item.name + "\u00A0\u00A0\u00A0" + item.stacks.get();
+                i.textContent = "\u00A0" + item.name + "\u00A0\u00A0\u00A0" + item.stacks.get;
                 i.dataset.n = counter; /*Funziona come indice*/
                 counter++;
                 list.append(i);
@@ -191,7 +181,7 @@ function updateUI(inventory) { /*Aggiorna il css quando cambia qualcosa nell'inv
         let pos = $(".inventoryItem").eq(i);
         if(inventory[i].name != null) {
             pos.css("background-image","url(" + inventory[i].img + ")");
-            pos.text(inventory[i].stacks.get());
+            pos.text(inventory[i].stacks.get);
         }
         else {
             pos.css("background-image","none");

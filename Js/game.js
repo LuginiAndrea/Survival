@@ -1,18 +1,15 @@
 
 import {spawners} from "./classes/Spawner.js";
 import {QuestManager} from "./classes/Quest.js";
-import { EntityManager } from "./classes/Entity.js";
+import { ArmedEntity, EntityManager } from "./classes/Entity.js";
 const {ExtendedMesh, Project, Scene3D, PhysicsLoader, THREE, ExtendedObject3D,  ThirdPersonControls, PointerLock, PointerDrag} = ENABLE3D;
 
 
 
 const MAX_PRESS_COUNTER = 40;
 var player;
-const attackStatus = Object.freeze({
-  NO: 0,
-  FIRSTATTACK:1,
-  ONGOING:2 //Evitare che vengano chiamate più collisioni per un solo attacco
-});
+var camera;
+var scene;
 /*Globali inventario*/
 var selectedItemTmp1 = -1; //Item selezionato dall'inventario di scambio 1
 var selectedItemTmp2 = -1; //Item selezionato dall'inventario di scambio 2
@@ -31,7 +28,8 @@ const GROUND_NAME = "body_id_21";
 class MainScene extends Scene3D {
   constructor() {
     super('MainScene');
-    this.entityManager = new EntityManager(); //Array di tutte le entità meno player
+    scene = this;
+    this.entityManager = new EntityManager(this); //Array di tutte le entità meno player
     this.player = null;
     this.questManager = new QuestManager();
     this.audio = new AudioManager();
@@ -84,17 +82,17 @@ async init() {
     $("#Pog").hide();
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    await preLoad(this);  
-    this.sounds["background"].play();
 } 
 
-  preload() {
+ async preload() {
     console.log('preload');
     this.warpSpeed("-ground");
     this.physics.debug.enable();
     this.camera.fov=90;
     this.camera.updateProjectionMatrix();
-
+    camera = this.camera;
+    await preLoad(this);  
+    this.sounds["background"].play();
   }
 
   async create() {
@@ -107,24 +105,17 @@ async init() {
     this.player = this.entityManager.entities.add(spawners.entity["Player"](this,"player"));
     this.player.body.setDamping(0.8,0.8); //Evita il "moonwalking"
     this.player.jump = {status:false, oldY: -8.5, pressed: false}; 
-    this.player.attacking = attackStatus.NO;
     player = this.player;
 
     /*Quest Loading*/
     this.questManager.quests.add(spawners.quests["moveQuest"](this));
     this.questManager.quests.add(spawners.quests["invQuest"](this));
+    this.questManager.quests.add(spawners.quests["destroyQuest"](this));
 
     /*Entity loading*/
-    //this.entityManager.entities.add(spawners.entity["Tree1"](this,"tree1", {z:10}));
+    this.entityManager.entities.add(spawners.entity["Tree1"](this,"tree1", {z:-10}));
+    this.entityManager.entities.add(spawners.entity["Tree1"](this,"tree1", {z:10}));
   
-    //this.entities.add(spawners.entity["Player"](this,"player"));
-    
-    this.player.body.on.collision((otherObj, e) => {
-      if(otherObj.name != GROUND_NAME) {
-        console.log(otherObj.body);
-      }
-    });
-
     /* Telecamera */
     this.controls = new ThirdPersonControls(this.camera, this.player.__model, {
       offset: new THREE.Vector3(0.3, 8, -1),
@@ -132,7 +123,6 @@ async init() {
       radius: 0,
       sensitivity: new THREE.Vector2(0.3, 0.3)
     });
-
     let pl = new PointerLock(this.canvas);
     let pd = new PointerDrag(this.canvas);
     pd.onMove(delta => {
@@ -173,7 +163,7 @@ async init() {
     }
 
     /*Jump*/
-    if(this.keys.SpaceBar && this.player.jump.status == false && this.player.jump.pressed == false && this.player.attacking == attackStatus.NO) { 
+    if(this.keys.SpaceBar && this.player.jump.status == false && this.player.jump.pressed == false && this.player.usingItem == ArmedEntity.useStatusStates.no) { 
       this.player.jump.pressed = true;
       let before = this.player.states.current.state;
       this.player.states.set("Jump");
@@ -185,7 +175,7 @@ async init() {
     }
 
     if(forward == NULL_SPEED && side == NULL_SPEED) { //Se non abbiamo premuto nulla torniamo all'idle
-      if(this.player.jump.status == false && this.player.jump.pressed == false && this.player.attacking == attackStatus.NO) 
+      if(this.player.jump.status == false && this.player.jump.pressed == false && this.player.usingItem == ArmedEntity.useStatusStates.no) 
         this.player.states.current.exit(); //Se nessun movimento è attivo allora andiamo in idle 
     }
     this.player.move(forward,side,NULL_SPEED);
@@ -243,26 +233,28 @@ async init() {
       }
       this.player.jump.oldY = this.player.model.position.y; //Aggiorniamo le vecchie coordinate 
     }
+
+
     
     /* Telecamera */
     if(this.player.model) {
-      this.controls.update(this.moveRight * 2, -this.moveTop * 2)
-      const v3 = new THREE.Vector3()
-      const rotation = this.camera.getWorldDirection(v3)
-      const theta = Math.atan2(rotation.x, rotation.z)
+      this.controls.update(this.moveRight * 2, -this.moveTop * 2);
+      const v3 = new THREE.Vector3();
+      const rotation = this.camera.getWorldDirection(v3);
+      const theta = Math.atan2(rotation.x, rotation.z);
       const thetaMan = this.player.model.world.theta;
-      this.player.body.setAngularVelocityY(0)
-      const l = Math.abs(theta - thetaMan)
-      let rotationSpeed = 4
-      let d = Math.PI / 24     
+      this.player.body.setAngularVelocityY(0);
+      const l = Math.abs(theta - thetaMan);
+      let rotationSpeed = 4;
+      let d = Math.PI / 24  ;   
       if (l > d) {
-        if (l > Math.PI - d) rotationSpeed *= -1
-        if (theta < thetaMan) rotationSpeed *= -1
+        if (l > Math.PI - d) rotationSpeed *= -1;
+        if (theta < thetaMan) rotationSpeed *= -1;
         this.player.body.setAngularVelocityY(rotationSpeed);
       }
     }
 
-    //Quest manager
+    this.entityManager.update();
     this.questManager.update();
   }
 }
@@ -341,20 +333,29 @@ $(document).ready(() => {
     }
   });
   /* Altro */
-  $(document).click((event) => { /*Click su una entità
-    /*
-    if(inventoryShowing == 0) {
-      const raycaster = new THREE.Raycaster();
-      const mouse = new THREE.Vector2();
-      mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-	    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-      raycaster.setFromCamera( mouse, camera );
-      const intersects = raycaster.intersectObjects( scene.children );
-      console.log(intersects);
-    }*/
-    if (player.attacking == attackStatus.NO) { 
-      player.attacking = attackStatus.FIRSTATTACK; 
-      setTimeout(()=>{player.attacking = attackStatus.NO},200);
-    }
+  $(document).click((event) => { 
+    /*if(inventoryShowing == 0) {
+      const inventoryOffsets = { w: 1, d:1, h:0.3 };
+      const raycaster = scene.physics.add.raycaster('closest');
+      const v3 = new THREE.Vector3();
+      let {x,y,z} = camera.getWorldDirection(v3);
+      raycaster.setRayFromWorld(x,y,z);
+      raycaster.setRayToWorld(x2,y2,z-10);
+      //console.log(theta);
+      const material = new THREE.LineBasicMaterial({ color: 0x0000ff })
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x,y,z+10),
+        new THREE.Vector3(x2,y2,z)
+      ])
+      const line = new THREE.Line(geometry, material)
+      scene.scene.add(line)
+      const keys = Object.keys(scene.entityManager.entities.list);
+      console.log(keys);
+      //raycaster.setFromCamera( mouse, camera );
+      //console.log(scene);
+      //const intersects = raycaster.intersectObjects( scene.scene.children );
+      //console.log(intersects);
+    } */
+    player.use();
   });
 });

@@ -6,36 +6,19 @@ class Entity {
     constructor(parent, name, model, x = 0, y = 0, z = 0) {
         this.__parent = parent; //Sarebbe la MainScene
         this.__name = name;
-        this.__model = model;//ExtendedObject3D (senza fisica)
+        this.__model = model; //ExtendedObject3D (senza fisica)
         this.__model.position.set(x,y,z);
         this.__model.name = "object3D_" + name;
         this.__finiteStateMachine = new FiniteStateMachine(this);
-        this.__inventory = null;     // Type inventory
-        this.__manager = null;
+        this.__inventory = null;     //inventory
+        this.__manager = null; //Entity Manager
     }
     load() {
        this.__parent.add.existing(this.model); //Aggiungiamo la mesh alla scena
     }
-    /* Distruttore */
     destroy() {
         this.model.clear();
         return this.inventory;
-    }
-    set manager(m) {
-        this.__manager = m;
-    }
-    /* Getters */
-    get model() {
-        return this.__model;
-    }
-    get name() {
-        return this.__name;
-    }
-    get animations() {
-        return this.__model.animation;
-    }
-    get parent() {
-        return this.__parent;
     }
     /* Trasformazioni 3D */
     rotate(degX, degY, degZ) {
@@ -46,13 +29,9 @@ class Entity {
         this.model.rotateY(degY);
         this.model.rotateZ(degZ);
     }
-    setPosition(x,y,z) {
-        this.model.position.set(x,y,z);
-    }
+    setPosition(x,y,z) { this.model.position.set(x,y,z); }
     /* Finite State Machine */
-    get FiniteStateMachine() {
-        return this.__finiteStateMachine;
-    }
+    get FiniteStateMachine() { return this.__finiteStateMachine; }
     get states() { // Interfaccia esterna
         return {
             add: (stateName,ifStopState,audio) => { this.__addState(stateName,ifStopState,audio); },
@@ -62,51 +41,42 @@ class Entity {
             list: this.FiniteStateMachine.states.list()
         }
     } 
-    __addState(stateName,ifStopState,audio) { //Queste rimangono per motivi di ereditarietà
-        this.FiniteStateMachine.states.add(stateName,ifStopState,audio);
-    }
-    __setState(stateName) {
-        this.FiniteStateMachine.states.set(stateName);
-    }
-    __getState(stateName) {
-        return this.FiniteStateMachine.states.get(stateName);
-    }
-    /* Inventario */
-    set inventory (inv) {
-        this.__inventory = inv;
-    }
-    get inventory() {
-        return this.__inventory;
-    }
+    __addState(stateName,ifStopState,audio) { this.FiniteStateMachine.states.add(stateName,ifStopState,audio); }
+    __setState(stateName) { this.FiniteStateMachine.states.set(stateName); }
+    __getState(stateName) { return this.FiniteStateMachine.states.get(stateName); }
+    /* Getters e setters*/
+    set inventory (inv) { this.__inventory = inv; }
+    get inventory() { return this.__inventory; }
+    set manager(m) { this.__manager = m; }
+    get manager() { return this.__manager; }
+    get model() { return this.__model; }
+    get name() { return this.__name; }
+    get animations() { return this.__model.animation; }
+    get parent() { return this.__parent; }
 }
 
 class PhysEntity extends Entity {
-    constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = 0, health = 0, inventory = null} = {}) { 
+    constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = -1, health = 0, inventory = null} = {}) { 
         super(parent,name,model,x,y,z);
         this.__maxHealth = maxHealth; //float
         this._health = health; //float
         /* Physics stuff */
         this.__collisionFlag = collisionFlag; //int 
         this.__physConfig = physConfig; //PhysConfing -> Ha le informazioni per l'instanziazione del body
+        this._destroyedBy = null;
     }
+    /* Fisica */
     load() {
         super.load();
         const physConf = this.__physConfig;
         this.__parent.physics.add.existing(this.model, {compound:physConf.compounds, offset:physConf.offset, mass:physConf.mass});
         this.body.setCollisionFlags(this.__collisionFlag);
     }
-    /* Distruttore */
     destroy() {
         this.__parent.physics.destroy(this.__model);
         return super.destroy();
     }
-    /* Getters */
-    get health() {
-        return this._health;
-    }
-    get body() {
-        return this.model.body;
-    }
+    get body() { return this.model.body; }
     /* Trasformazioni 3D */
     move(forward, side, upward) { 
         let cosZ = Math.cos(this.model.world.theta);
@@ -131,12 +101,23 @@ class PhysEntity extends Entity {
         super.setPosition(x,y,z);
         this.body.needUpdate = true;
     }
+    /* hit & health */
+    hit(item) {
+        this._health -= item.damage;
+        this._destroyedBy = item.user;
+    }
+    get destroyedBy() { 
+        if(!this.isAlive) 
+            return this._destroyedBy;
+    }
+    get health() { return this._health; }
+    get isAlive() { return !(this.__maxHealth >= 0 && this._health < 0); }
 }
 
 class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipaggiare degli item
-    constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = 0, health = 0} = {}) { 
+    constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = -1, health = 0} = {}) { 
         super({parent:parent,name:name,model:model,x:x,y:y,z:z,collisionFlag:collisionFlag,physConfig:physConfig,maxHealth:maxHealth,health:health});
-        this._equipped = {index: -1, weapon: null}; //L'indice nell'inventario, la weapon entity
+        this._equipped = {index: -1, weapon: null, using: 0}; //L'indice nell'inventario, la weapon entity e il suo use status
     }
     destroy() {
         if(this.equippedItem != null) this.equippedItem.destroy();
@@ -147,28 +128,43 @@ class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipag
         this.equip(0);
     }
     /* Equipped items */
-    equip(index) { //Aggiungerli sotto un get inventory? Boh
-        if(this.inventory.items.at(index).equippable) {
+    static get useStatusStates() {
+        return {
+            no: 0,
+            first:1,
+            ongoing:2
+        };
+    }             
+    use() {
+        if(this._equipped.using == ArmedEntity.useStatusStates.no) {
+            this._equipped.using = ArmedEntity.useStatusStates.first;
+            setTimeout(()=>{this._equipped.using = ArmedEntity.useStatusStates.no}, this._equipped.weapon.useTime);
+        }
+    }
+    equip(index) { 
+        if(this.inventory.items.at(index).equippable && this._equipped.using == ArmedEntity.useStatusStates.no) {
             this._equipped.index = index;
-            this.__loadEquipped();
+            this.__loadEquipped(this);
         }
         else console.warn("Item non equipaggiabile");
     }
-    /*unequip() { //Vedere attentamente sta funzione
+    /* unequip() { //Vedere attentamente sta funzione
         if(this._equipped.weapon != null) {
             this._equipped.weapon.destroy();
             console.log(this._equipped.weapon);
             this._equipped.index = -1;
         }
-    }*/
-    get equippedItem() {
-        return this._equipped.weapon;
-    }
+    } */
+    get usingItem() { return this._equipped.using; }
+    set usingItem(s) { this._equipped.using = s; }
+    get equippedItem() { return this._equipped.weapon; }
     __loadEquipped() { //Private, serve al load dell'item
         let item = this.inventory.items.at([this._equipped.index]);
-        const {x,y,z} = weaponOffsets[item.name];
-        this._equipped.weapon = spawners.item[item.name](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:this.model.position.x+x, y:this.model.position.y / 2+y, z:(this.model.position.z / 2)+z});
-        this._equipped.weapon.load();
+        const x = this.model.position.x + weaponOffsets[item.name].x;
+        const y = (this.model.position.y / 2) + weaponOffsets[item.name].y;
+        const z = (this.model.position.z / 2) + weaponOffsets[item.name].z;
+        this._equipped.weapon = this.manager.entities.add(spawners.item[item.name](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:x, y:y, z:z}));
+        this._equipped.weapon.user = this;
         this.__parent.physics.add.constraints.lock(this.body, this._equipped.weapon.body); //lega i due oggetti
     }
     //setState(stateName) { //Setta lo state a entrambi (Devono avere lo stesso nome!)
@@ -186,23 +182,34 @@ class PlayerEntity extends ArmedEntity {
         }
         super.unequip();
     }*/
+    destroy() {
+        //codice per dire che sei morto con comando per respawnare
+        super.destroy();
+    }
     __loadEquipped() {
-        super.__loadEquipped("player");
+        super.__loadEquipped();
         $(".inventoryItem").eq(this._equipped.index).html($(".inventoryItem").eq(this._equipped.index).html() + "(E)");
     }
 }
 
 class Item {
-    constructor(entity, damage = 0) {
-        this._entity = entity;
-        this._damage = damage;
-        this._onCollision = (otherObj,event) => {};
+    constructor(entity, damage = 0, useTime = 0) {
+        this._entity = entity; //PhysEntity
+        this.__damage = damage;
+        this._onCollision = (otherObj,event) => {}; //function pointer
+        this._user = null; //Armed Entity
+        this.__useTime = useTime;
     }
     destroy() { this._entity.destroy(); }
     load() { 
         this._entity.load(); 
         this._entity.body.on.collision((otherObj,event) => {this._onCollision(otherObj,event);});
     }
+    set user (u) { this._user = u; }
+    get user() { return this._user; }
+    get useTime () { return this.__useTime; }
+    get damage() { return this.__damage; }
+    get name() { return this._entity.name; }
     get entity() { return this._entity; }
     get body() { return this._entity.body; }
     get model() { return this._entity.model; }
@@ -210,12 +217,14 @@ class Item {
     get states() { return this._entity.states; }
     set onCollision(callback) { this._onCollision = callback; }
     get onCollision() { return this._onCollision; }
+    get isAlive() { return true; }
     //spth.gob.es
 }
 
 
 class EntityManager {
-    constructor() {
+    constructor(parent = null) {
+        this.__parent = parent;
         this._entities = {};
     }
     get entities() {
@@ -226,24 +235,42 @@ class EntityManager {
                 this._entities[entity.name].load();
                 return this._entities[entity.name];
             },
-            remove: (entityName, {c_x = 0,c_y = 0,c_z = 0} = {}) => {
-                let obj = this._entities[entityName];
-                const scene = obj.parent;
-                const inv = obj.destroy();
-                delete this._entities[entityName];
-                if(inv != null) { 
-                   let newInventory = this.entities.add(spawners.entity["Inventory"](scene,"inventory",{x:c_x,y:c_y,z:c_z}));
-                   newInventory.inventory = inv;
-                   newInventory.load();
+            remove: (entityName) => {
+                if (entityName in this._entities) {
+                    let obj = this._entities[entityName];
+                    const {x,y,z} = obj.model.position;
+                    const scene = obj.parent;
+                    const inv = obj.destroy();
+                    delete this._entities[entityName]; //eliminiamo la proprietà
+                    if(inv != null) { 
+                        let newInventory = this.entities.add(spawners.entity["Inventory"](scene,"inventory",{x:x,y:y+2,z:z}));
+                        newInventory.inventory = inv;
+                        newInventory.load();
+                    }
                 }
+                else 
+                    console.error("Quest non presente nel manager");
             },
             entity: (entityName) => {
-                return this._entities[entityName];
+                if (entityName in this._entities)
+                    return this._entities[entityName];
+                else 
+                    console.error("Quest non presente nel manager");
             },
             list: this._entities
         };
     }
+    update() {
+        const keys = Object.keys(this._entities);
+        for(let name of keys) {
+            if(!this._entities[name].isAlive) {
+                this.__parent.questManager.update();
+                this.entities.remove(name);
+            }
+        }
+    }
 }
+
 
                 
   

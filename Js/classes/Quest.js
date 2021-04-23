@@ -30,21 +30,11 @@ class Quest {
         this.__manager.quests.remove(this.__questName); //Rimuoviamo la quest dal manager
         return returnValues;
     }
-    get status() {
-        return this._status;
-    }
-    set status(s) {
-        this._status = questStatus[s];
-    }
-    get name() {
-        return this.__questName;
-    }
-    set manager(m) {
-        this.__manager = m;
-    }
-    get manager() {
-        return this.__manager;
-    }
+    get status() { return this._status; }
+    set status(s) { this._status = questStatus[s]; }
+    get name() { return this.__questName; }
+    set manager(m) { this.__manager = m; }
+    get manager() { return this.__manager; }
 }
 
 class QuestManager {
@@ -62,8 +52,8 @@ class QuestManager {
                 delete this._quests[questName];
             },
             start: (questName) => { 
-                if(questName in this._quests) //Se esiste
-                    return this._quests[questName].start;
+                if(questName in this._quests) 
+                    this._quests[questName].start;
                 else 
                     console.error("Quest non presente nel manager");    
             },
@@ -74,9 +64,8 @@ class QuestManager {
                     console.error("Quest non presente nel manager");
             },
             end: (questName) => {
-                if(questName in this._quests) {
+                if(questName in this._quests) 
                     return this._quests[questName].end;
-                }
                 else
                     console.error("Quest non presente nel manager");
             },
