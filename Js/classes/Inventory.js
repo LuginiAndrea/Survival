@@ -3,6 +3,14 @@ export {createInventoryItem,PlayerInventory, Inventory}
 const createInventoryItem = {};
 createInventoryItem["Wood"] = createWoodItem;
 createInventoryItem["Sword"] = createSwordItem;
+createInventoryItem["Apple"] = createAppleItem;
+createInventoryItem["Meat"] = createMeatItem;
+createInventoryItem["Stone"] = createStoneItem;
+createInventoryItem["Bonfire"] = createBonfireItem;
+createInventoryItem["CookedApple"] = createCookedAppleItem;
+createInventoryItem["CookedMeat"] = createCookedMeatItem;
+createInventoryItem["CraftingTable"] = createCraftingTable;
+createInventoryItem["ChefCuisine"] = createChefCuisine;
 var imgPath = "../../Resources/Textures/";
 
 /* ------------------------- Inizio classi ---------------------------*/
@@ -68,6 +76,14 @@ class InvItem {
     get maxStacks() { return this.__maxStacks; }
     get equippable() { return this.__equippable; }
     get remainingSpace() { return (this.__maxStacks - this._stacks); }
+
+    getHtmlElement(n) {
+        let li = document.createElement("li");
+        li.textContent = "\u00A0" + this.name + "\u00A0\u00A0\u00A0" + this._stacks;
+        li.dataset.n = n; /*Funziona come indice*/
+        return li;
+    }
+
 }
 
 class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'inventario quando il puntatore ci va sopra, drop degli item, add degli item, creazione del modello dell'inventory
@@ -119,10 +135,11 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         tmp.copyItem(this._items[index]);
         tmp.stacks.set(dropStacks);
         let inventory = new Inventory(1); //Un nuovo inventario
-        inventory.addItem(tmp);  
+        inventory.__addItem(tmp);  
         if(this._items[index].stacks.get == 0) { 
             this._items.splice(index,1);
             this._items.push(new InvItem());
+            this._size--;
         }
         return inventory;        
     }
@@ -138,11 +155,8 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
         let counter = 0;
         this._items.forEach((item) => {
             if(item.name != null) {
-                let i = document.createElement("li");
-                i.textContent = "\u00A0" + item.name + "\u00A0\u00A0\u00A0" + item.stacks.get;
-                i.dataset.n = counter; /*Funziona come indice*/
+                list.append(item.getHtmlElement(counter));
                 counter++;
-                list.append(i);
             }
         });
         return list;
@@ -150,14 +164,18 @@ class Inventory { //caricamento immagini negli li e la comparsa a schermo dell'i
     /* Metodi di classe */
     static moveFromInventory(from, to, index, stacks) { /*Comunicazione fra due inventari ---> Usato per gli inventari temporanei --> Vedere se rifarla */
         let tmp = new InvItem();
-        tmp.copyItem(from.items[index]);
-        tmp.stacks.set(stacks);             
-        let returning = to.addItem(tmp);
-        from.dropItem(index,stacks - returning,false);
-        $("#tmpInv1").html(""); 
-        $("#tmpInv1").append(from.htmlElement);
-        $("#tmpInv2").html("");
-        $("#tmpInv2").append(to.htmlElement);
+        tmp.copyItem(from.items.at(index));
+        tmp.stacks.set(stacks);          
+        console.log("b: " + to);   
+        let returning = to.items.add(tmp);
+        from.items.drop(index,stacks - returning);
+        console.log(from);
+        console.log(to);
+    }
+    displayToTmp(n) {
+        const str = "#tmpInv" + n;
+        $(str).html("");
+        $(str).append(this.htmlElement);
     }
 }       
 
@@ -168,15 +186,13 @@ class PlayerInventory extends Inventory{ //Un wrapper la cui unica vera utilità
         return tmp;
     }
     __dropItem(index, stacks = null) {
-        let tmp = super.items.__dropItem(index,stacks);
+        let tmp = super.__dropItem(index,stacks);
         updateUI(this._items);
         return tmp;
     }
 }
 /*------------------ Fine classi --------------------------- */
-
 function updateUI(inventory) { /*Aggiorna il css quando cambia qualcosa nell'inventario del giocatore*/
-    let i = 0;
     for(let i = 0; i < inventory.length; i++) {
         let pos = $(".inventoryItem").eq(i);
         if(inventory[i].name != null) {
@@ -189,29 +205,80 @@ function updateUI(inventory) { /*Aggiorna il css quando cambia qualcosa nell'inv
         }
     }
 }
-
 /* ----------------------- Create inventory items --------------------------------*/
 function createWoodItem(nStacks = 1) {
     return (new InvItem({   imgName: (imgPath + "wood.svg"),
-                            itemName: "Legno",
+                            itemName: "Wood",
                             stacks: nStacks,
                             maxStacks: 10
                         })); 
 }
 function createSwordItem(nStacks = 1) {
-    return (new InvItem({   imgName: ("../../Resources/Textures/grazio1.png"),
+    return (new InvItem({   imgName: (imgPath + "sword.svg"),
                             itemName: "Sword",
                             stacks: nStacks,
-                            maxStacks: 2,
+                            maxStacks: 1,
                             equippable:true
                         })); 
 }
-                     
-
-
-                
-
-            
+function createAppleItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "apple.svg"),
+                            itemName: "Apple",
+                            stacks: nStacks,
+                            maxStacks: 20
+                        })); 
+}
+function createMeatItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "meat.svg"),
+                            itemName: "Meat",
+                            stacks: nStacks,
+                            maxStacks: 5
+                        })); 
+}
+function createStoneItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "rock.svg"),
+                            itemName: "Stone",
+                            stacks: nStacks,
+                            maxStacks: 10
+                        })); 
+}
+function createBonfireItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "bonfire.svg"),
+                            itemName: "Bonfire",
+                            stacks: nStacks,
+                            maxStacks: 3
+                        })); 
+}            
+function createCookedAppleItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "cookedapple.svg"),
+                            itemName: "CookedApple",
+                            stacks: nStacks,
+                            maxStacks: 20
+                        })); 
+}
+function createCookedMeatItem(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "cookedMeat.svg"),
+                            itemName: "CookedMeat",
+                            stacks: nStacks,
+                            maxStacks: 5
+                        })); 
+}
+function createCraftingTable(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "crafttable.svg"),
+                            itemName: "CraftingTable",
+                            stacks: nStacks,
+                            maxStacks: 1,
+                            equippable: true
+                        }));
+}
+function createChefCuisine(nStacks = 1) {
+    return (new InvItem({   imgName: (imgPath + "Chef.svg"),
+                            itemName: "ChefCuisine",
+                            stacks: nStacks,
+                            maxStacks: 3,
+                            equippable: false
+                        }));
+}
 
 
 

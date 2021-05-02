@@ -1,5 +1,7 @@
 import {FiniteStateMachine} from "./FiniteStateMachine.js";
 import {spawners, weaponOffsets} from "./Spawner.js";
+import {setLastInventory} from "../game.js";
+import {RecipeManager} from "./Recipe.js";
 export {Entity, PhysEntity, ArmedEntity, Item, PlayerEntity, EntityManager}
 
 class Entity {
@@ -23,7 +25,7 @@ class Entity {
     /* Trasformazioni 3D */
     rotate(degX, degY, degZ) {
         degX = degX * Math.PI / 180;
-        degY = degY * Math.PI / 180;
+        degY = degY 
         degZ = degZ * Math.PI / 180;
         this.model.rotateX(degX);
         this.model.rotateY(degY);
@@ -41,6 +43,11 @@ class Entity {
             list: this.FiniteStateMachine.states.list()
         }
     } 
+    setRotation(degX,degY,degZ) {
+        this.model.rotation.x = degX * Math.PI / 180;
+        this.model.rotation.y = degY * Math.PI / 180;
+        this.model.rotation.z = degZ * Math.PI / 180;
+    }
     __addState(stateName,ifStopState,audio) { this.FiniteStateMachine.states.add(stateName,ifStopState,audio); }
     __setState(stateName) { this.FiniteStateMachine.states.set(stateName); }
     __getState(stateName) { return this.FiniteStateMachine.states.get(stateName); }
@@ -54,7 +61,6 @@ class Entity {
     get animations() { return this.__model.animation; }
     get parent() { return this.__parent; }
 }
-
 class PhysEntity extends Entity {
     constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = -1, health = 0, inventory = null} = {}) { 
         super(parent,name,model,x,y,z);
@@ -109,11 +115,11 @@ class PhysEntity extends Entity {
     get destroyedBy() { 
         if(!this.isAlive) 
             return this._destroyedBy;
+        return null;
     }
     get health() { return this._health; }
     get isAlive() { return !(this.__maxHealth >= 0 && this._health < 0); }
 }
-
 class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipaggiare degli item
     constructor({parent, name, model, x = 0, y = 0, z = 0, collisionFlag = 0, physConfig = {compounds = null, mass = 1, offset = {x = 0, y = 0, z = 0} = {}} = {}, maxHealth = -1, health = 0} = {}) { 
         super({parent:parent,name:name,model:model,x:x,y:y,z:z,collisionFlag:collisionFlag,physConfig:physConfig,maxHealth:maxHealth,health:health});
@@ -142,26 +148,19 @@ class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipag
         }
     }
     equip(index) { 
-        if(this.inventory.items.at(index).equippable && this._equipped.using == ArmedEntity.useStatusStates.no) {
+        if((this._equipped.weapon == null || this._equipped.weapon.entityName != this.inventory.items.at(index).name) && this.inventory.items.at(index).equippable && this._equipped.using == ArmedEntity.useStatusStates.no) {
             this._equipped.index = index;
             this.__loadEquipped(this);
         }
         else console.warn("Item non equipaggiabile");
     }
-    /* unequip() { //Vedere attentamente sta funzione
-        if(this._equipped.weapon != null) {
-            this._equipped.weapon.destroy();
-            console.log(this._equipped.weapon);
-            this._equipped.index = -1;
-        }
-    } */
     get usingItem() { return this._equipped.using; }
     set usingItem(s) { this._equipped.using = s; }
     get equippedItem() { return this._equipped.weapon; }
     __loadEquipped() { //Private, serve al load dell'item
         let item = this.inventory.items.at([this._equipped.index]);
         const x = this.model.position.x + weaponOffsets[item.name].x;
-        const y = (this.model.position.y / 2) + weaponOffsets[item.name].y;
+        const y = (this.model.position.y) + weaponOffsets[item.name].y;
         const z = (this.model.position.z / 2) + weaponOffsets[item.name].z;
         this._equipped.weapon = this.manager.entities.add(spawners.item[item.name](this.__parent,"weapon-" + item.name + "-"+ this.__name, {x:x, y:y, z:z}));
         this._equipped.weapon.user = this;
@@ -172,38 +171,66 @@ class ArmedEntity extends PhysEntity { //Wrapper per entità che possono equipag
         /*Bisogna implementare gli stati degli item equipaggiabbili this._equipped.physEnt.setState(stateName); */
     //}
 }
-
 class PlayerEntity extends ArmedEntity {
-    /*unequip() {
-        if(this._equipped.index >= 0 && this._equipped.index <= this.inventory.maxSize) {
-            const newHtml = $(".inventoryItem").eq(this._equipped.index).html();
-            newHtml = newHtml.substring(0,newHtml.length-3);
-            $(".inventoryItem").eq(this._equipped.index).html(newHtml);
+    load() {
+        this._craftState = PlayerEntity.craftingStatuses.no;
+        super.load();
+    }
+    equip(index) {
+        if(this.inventory.items.at(index).name == "CraftingTable")
+            this._craftState = PlayerEntity.craftingStatuses.pickFirst;
+        else {
+            this._craftState = PlayerEntity.craftingStatuses.no;
+            super.equip(index);
         }
-        super.unequip();
-    }*/
+    }
     destroy() {
         //codice per dire che sei morto con comando per respawnare
         super.destroy();
     }
-    __loadEquipped() {
-        super.__loadEquipped();
-        $(".inventoryItem").eq(this._equipped.index).html($(".inventoryItem").eq(this._equipped.index).html() + "(E)");
+    /* Crafting */
+    static get craftingStatuses() {
+        return {
+            no: 0,
+            pickFirst: 1,
+            pickSecond: 2,
+            waitForCraft: 3
+        };
+    }
+    get craftingStatus() { return this._craftState; }
+    set craftingStatus(s) { this._craftState = s; }
+
+    presentCraft(index1, index2) { //Finire  stacksItem1-nomeItem1+nomeItem2-stacksItem2 -> 
+        let item1 = this.inventory.items.at(index1);
+        let item2 = this.inventory.items.at(index2);
+        let manager = this.__parent.recipeManager;
+        let keys = Object.keys(manager._recipes);
+        let approvedRecipes = new RecipeManager(this.__parent);
+        for(let recName of keys) {
+            if(manager.recipes.get(recName).isValid(item1,item2)) 
+                approvedRecipes.recipes.add(manager.recipes.get(recName));
+        }
+        console.log(approvedRecipes);
+        $("#CraftingMenu").show();
+        $("#insideCraftingMenu").html(approvedRecipes.htmlElement);
     }
 }
-
 class Item {
-    constructor(entity, damage = 0, useTime = 0) {
+    constructor(entity, damage = 0, useTime = 0, sound) {
         this._entity = entity; //PhysEntity
         this.__damage = damage;
         this._onCollision = (otherObj,event) => {}; //function pointer
         this._user = null; //Armed Entity
         this.__useTime = useTime;
+        this.__sound = sound;
     }
     destroy() { this._entity.destroy(); }
     load() { 
         this._entity.load(); 
         this._entity.body.on.collision((otherObj,event) => {this._onCollision(otherObj,event);});
+    }
+    playSound() {
+        this.__sound.play();
     }
     set user (u) { this._user = u; }
     get user() { return this._user; }
@@ -218,15 +245,17 @@ class Item {
     set onCollision(callback) { this._onCollision = callback; }
     get onCollision() { return this._onCollision; }
     get isAlive() { return true; }
-    //spth.gob.es
+    get entityName() {
+        return this.name.split("-")[1];
+    }     
 }
-
 
 class EntityManager {
     constructor(parent = null) {
         this.__parent = parent;
         this._entities = {};
     }
+    
     get entities() {
         return {
             add: (entity) => {
@@ -246,22 +275,20 @@ class EntityManager {
                         let newInventory = this.entities.add(spawners.entity["Inventory"](scene,"inventory",{x:x,y:y+2,z:z}));
                         newInventory.inventory = inv;
                         newInventory.load();
+                        setLastInventory(inv);
                     }
                 }
-                else 
-                    console.error("Quest non presente nel manager");
+                else console.error("Entity non presente nel manager");
             },
-            entity: (entityName) => {
-                if (entityName in this._entities)
-                    return this._entities[entityName];
-                else 
-                    console.error("Quest non presente nel manager");
+            entity: (entityName = "") => {
+                if (entityName in this._entities) return this._entities[entityName];
+                else console.error("Entity non presente nel manager");
             },
             list: this._entities
         };
     }
     update() {
-        const keys = Object.keys(this._entities);
+        let keys = Object.keys(this._entities);
         for(let name of keys) {
             if(!this._entities[name].isAlive) {
                 this.__parent.questManager.update();
@@ -270,7 +297,3 @@ class EntityManager {
         }
     }
 }
-
-
-                
-  

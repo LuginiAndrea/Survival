@@ -1,13 +1,10 @@
 
-Prio :
-    Rifare drop item
-    Fare formula per calcolo del volume dell'audio
+Prio: 
+    Quest so na cifra piccolo
 end
 
 Medio :
-    Gestire I suoni! --> Usare FiniteStateMachine |  https://github.com/yandeu/audio --> A buon punto daje
-    Fare raytracing per vedere quando aprire un inventario
-    Fare lista quest css e html
+    Gestire I suoni! --> Usare FiniteStateMachine |  https://github.com/yandeu/audio --> A buon punto daje ---> Testare formula per suono mob
 end
 
 Last :
@@ -15,10 +12,8 @@ Last :
     Animazioni e stati per tutti gli altri oggetti
 end
 
-Fillo:
-Sistema di crafting ---> Fillo WIP
+Fillo:Sistema di crafting ---> Io
 
 
-Mob neutri ---> Fillo WIP
-Mob ostili ---> Fillo WIP
-NPC? ---> Fillo WIP
+
+Finire inserimento ricette (entity)
